@@ -321,3 +321,11 @@ The project includes a few touches that make a noticeable difference on free Paa
 - `preload="metadata"` on every `<video>` tag so the first paint is not blocked by the full video download.
 - Idempotent `init_db()` — safe to call repeatedly under multiple gunicorn workers without conflict.
 
+### Switching to PostgreSQL
+
+Swap `sqlite3.connect()` and the `Row` factory in `get_db()` for `psycopg2` + `RealDictCursor`. The SQL is standard except:
+
+- `datetime('now')` → `now()`
+- `date(...)` → `::date`
+- `strftime('%Y-%m', ...)` → `to_char(..., 'YYYY-MM')`
+
