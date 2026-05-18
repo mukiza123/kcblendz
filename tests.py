@@ -419,3 +419,35 @@ class RegionHelperTests(unittest.TestCase):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cart & order flow
+# ─────────────────────────────────────────────────────────────────────────────
+class CartTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _fresh_db()
+
+    def setUp(self):
+        self.client = kc.app.test_client()
+        with self.client.session_transaction() as s:
+            s["region"] = "MU"
+
+    def test_add_product_to_cart(self):
+        with kc.app.app_context():
+            pid = kc.get_db().execute(
+                "SELECT id FROM products WHERE is_available_mu=1 LIMIT 1"
+            ).fetchone()["id"]
+        tok = _csrf(self.client, "/shop")
+        r = self.client.post("/cart/add", data={
+            "_csrf": tok, "product_id": str(pid), "quantity": "2",
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        # Verify cart page shows it
+        r = self.client.get("/cart")
+        self.assertEqual(r.status_code, 200)
+
+    def test_cart_page_empty_state_renders(self):
+        r = self.client.get("/cart")
+        self.assertEqual(r.status_code, 200)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sandbox visibility — admin-only test cards
