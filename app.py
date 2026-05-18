@@ -2106,3 +2106,231 @@ def submit_review(slug):
 
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ADMIN DASHBOARD
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/admin")
+@admin_required
+def admin_dashboard():
+    db = get_db()
+    today = datetime.now().date().isoformat()
+    month_start = datetime.now().replace(day=1).date().isoformat()
+    stats = {
+        "revenue_today": db.execute("SELECT COALESCE(SUM(total),0) AS v FROM orders WHERE payment_status='paid' AND date(created_at)=?", (today,)).fetchone()["v"],
+        "revenue_month": db.execute("SELECT COALESCE(SUM(total),0) AS v FROM orders WHERE payment_status='paid' AND date(created_at)>=?", (month_start,)).fetchone()["v"],
+        "orders_today": db.execute("SELECT COUNT(*) AS v FROM orders WHERE date(created_at)=?", (today,)).fetchone()["v"],
+        "orders_month": db.execute("SELECT COUNT(*) AS v FROM orders WHERE date(created_at)>=?", (month_start,)).fetchone()["v"],
+        "customers": db.execute("SELECT COUNT(*) AS v FROM users WHERE role='customer' AND status='active'").fetchone()["v"],
+        "products": db.execute("SELECT COUNT(*) AS v FROM products WHERE is_active=1").fetchone()["v"],
+    }
+    recent_orders = db.execute("SELECT * FROM orders ORDER BY created_at DESC LIMIT 10").fetchall()
+    recent_users = db.execute("SELECT * FROM users WHERE role='customer' ORDER BY created_at DESC LIMIT 5").fetchall()
+    pending_orders = db.execute("SELECT COUNT(*) AS v FROM orders WHERE order_status='pending'").fetchone()["v"]
+    notifs = db.execute("SELECT * FROM notifications WHERE audience='admin' ORDER BY created_at DESC LIMIT 8").fetchall()
+    # last 7 days revenue by region for chart
+    last7_ng = db.execute("""SELECT date(created_at) AS d, COALESCE(SUM(total),0) AS v
+        FROM orders WHERE payment_status='paid' AND region='NG' AND date(created_at)>=date('now','-6 days')
+        GROUP BY date(created_at) ORDER BY d""").fetchall()
+    last7_mu = db.execute("""SELECT date(created_at) AS d, COALESCE(SUM(total),0) AS v
+        FROM orders WHERE payment_status='paid' AND region='MU' AND date(created_at)>=date('now','-6 days')
+        GROUP BY date(created_at) ORDER BY d""").fetchall()
+    last7_gl = db.execute("""SELECT date(created_at) AS d, COALESCE(SUM(total),0) AS v
+        FROM orders WHERE payment_status='paid' AND region='GL' AND date(created_at)>=date('now','-6 days')
+        GROUP BY date(created_at) ORDER BY d""").fetchall()
+    return render_template("admin/dashboard.html", stats=stats,
+                           recent_orders=recent_orders, recent_users=recent_users,
+                           pending_orders=pending_orders, notifs=notifs,
+                           last7_ng=last7_ng, last7_mu=last7_mu, last7_gl=last7_gl)
+
+
+# Products
+@app.route("/admin/products")
+@admin_required
+def admin_products():
+    q = request.args.get("q", "").strip()
+    cat = request.args.get("category", "").strip()
+    sql = """SELECT p.*, c.name AS category_name FROM products p
+             LEFT JOIN categories c ON c.id=p.category_id WHERE 1=1"""
+    params = []
+    if q:
+        sql += " AND (p.name LIKE ? OR p.slug LIKE ?)"
+        params += [f"%{q}%", f"%{q}%"]
+    if cat:
+        sql += " AND c.slug=?"
+        params.append(cat)
+    sql += " ORDER BY p.is_active DESC, p.id DESC"
+    products = get_db().execute(sql, params).fetchall()
+    categories = get_db().execute("SELECT * FROM categories ORDER BY sort_order").fetchall()
+    return render_template("admin/products.html", products=products, categories=categories, q=q, cat=cat)
+
+
+@app.route("/admin/products/new", methods=["GET", "POST"])
+@admin_required
+def admin_product_new():
+    categories = get_db().execute("SELECT * FROM categories ORDER BY sort_order").fetchall()
+    if request.method == "POST":
+        return admin_product_save(None, categories)
+    return render_template("admin/product_form.html", p=None, categories=categories)
+
+
+@app.route("/admin/products/<int:pid>/edit", methods=["GET", "POST"])
+@admin_required
+def admin_product_edit(pid):
+    p = get_db().execute("SELECT * FROM products WHERE id=?", (pid,)).fetchone()
+    if not p: abort(404)
+    categories = get_db().execute("SELECT * FROM categories ORDER BY sort_order").fetchall()
+    if request.method == "POST":
+        return admin_product_save(p, categories)
+    return render_template("admin/product_form.html", p=p, categories=categories)
+
+
+def admin_product_save(p, categories):
+    f = request.form
+    name = f.get("name", "").strip()
+    if not name:
+        flash("Name is required.", "error")
+        return render_template("admin/product_form.html", p=p, categories=categories)
+    slug = f.get("slug", "").strip().lower() or re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    image_url = f.get("image_url", "").strip()
+    file = request.files.get("image_file")
+    if file and file.filename:
+        u = save_upload(file)
+        if u: image_url = u
+    fields = dict(
+        slug=slug, name=name,
+        short_description=f.get("short_description", "").strip(),
+        description=f.get("description", "").strip(),
+        ingredients=f.get("ingredients", "").strip(),
+        health_benefits=f.get("health_benefits", "").strip(),
+        category_id=int(f.get("category_id") or 0) or None,
+        image_url=image_url,
+        price_ngn=float(f.get("price_ngn") or 0),
+        price_mur=float(f.get("price_mur") or 0),
+        price_usd=float(f.get("price_usd") or 0),
+        stock=int(f.get("stock") or 0),
+        is_available_ng=1 if f.get("is_available_ng") else 0,
+        is_available_mu=1 if f.get("is_available_mu") else 0,
+        is_available_global=1 if f.get("is_available_global") else 0,
+        is_featured=1 if f.get("is_featured") else 0,
+        is_bestseller=1 if f.get("is_bestseller") else 0,
+        is_new=1 if f.get("is_new") else 0,
+        tags=f.get("tags", "").strip(),
+        is_active=1 if f.get("is_active") else 0,
+    )
+    db = get_db()
+    if p is None:
+        cols = ",".join(fields.keys()); ph = ",".join("?" for _ in fields)
+        try:
+            db.execute(f"INSERT INTO products ({cols}) VALUES ({ph})", tuple(fields.values()))
+        except sqlite3.IntegrityError:
+            flash("Slug already exists. Try a different name.", "error")
+            return render_template("admin/product_form.html", p=p, categories=categories)
+        db.commit()
+        audit("product.create", "product", db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"], {"name": name})
+        flash("Product created.", "success")
+    else:
+        sets = ",".join(f"{k}=?" for k in fields.keys())
+        db.execute(f"UPDATE products SET {sets} WHERE id=?", tuple(fields.values()) + (p["id"],))
+        db.commit()
+        audit("product.update", "product", p["id"], {"name": name})
+        flash("Product updated.", "success")
+    return redirect(url_for("admin_products"))
+
+
+@app.route("/admin/products/<int:pid>/delete", methods=["POST"])
+@admin_required
+def admin_product_delete(pid):
+    get_db().execute("UPDATE products SET is_active=0 WHERE id=?", (pid,))
+    get_db().commit()
+    audit("product.soft_delete", "product", pid)
+    flash("Product disabled (soft-delete).", "info")
+    return redirect(url_for("admin_products"))
+
+
+# Categories management (inline)
+@app.route("/admin/categories", methods=["GET", "POST"])
+@admin_required
+def admin_categories():
+    if request.method == "POST":
+        slug = re.sub(r"[^a-z0-9]+", "-", request.form.get("name", "").lower()).strip("-")
+        get_db().execute("INSERT INTO categories (slug, name, description) VALUES (?,?,?)",
+                         (slug, request.form.get("name", "").strip(), request.form.get("description", "").strip()))
+        get_db().commit()
+        flash("Category added.", "success")
+        return redirect(url_for("admin_categories"))
+    cats = get_db().execute("SELECT * FROM categories ORDER BY sort_order").fetchall()
+    return render_template("admin/categories.html", categories=cats)
+
+
+# Orders
+@app.route("/admin/orders")
+@admin_required
+def admin_orders():
+    status = request.args.get("status", "").strip()
+    region = request.args.get("region", "").strip()
+    q = request.args.get("q", "").strip()
+    sql = "SELECT * FROM orders WHERE 1=1"; params = []
+    if status: sql += " AND order_status=?"; params.append(status)
+    if region: sql += " AND region=?"; params.append(region)
+    if q: sql += " AND (order_number LIKE ? OR full_name LIKE ? OR email LIKE ?)"; params += [f"%{q}%"]*3
+    sql += " ORDER BY created_at DESC"
+    orders = get_db().execute(sql, params).fetchall()
+    return render_template("admin/orders.html", orders=orders, status=status, region=region, q=q)
+
+
+@app.route("/admin/orders/<int:order_id>", methods=["GET", "POST"])
+@admin_required
+def admin_order_detail(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    if not order: abort(404)
+    if request.method == "POST":
+        new_status = request.form.get("order_status")
+        new_payment = request.form.get("payment_status")
+        if new_status in ("pending", "processing", "ready", "delivered", "cancelled"):
+            db.execute("UPDATE orders SET order_status=?, updated_at=datetime('now') WHERE id=?",
+                       (new_status, order_id))
+            if order["user_id"]:
+                notify(order["user_id"], f"Order {order['order_number']} — {new_status}",
+                       f"Your order status changed to '{new_status}'.",
+                       url_for("account_order_detail", order_id=order_id))
+        if new_payment in ("pending", "paid", "failed", "refunded"):
+            db.execute("UPDATE orders SET payment_status=? WHERE id=?", (new_payment, order_id))
+        db.commit()
+        audit("order.update", "order", order_id,
+              {"status": new_status, "payment_status": new_payment})
+        flash("Order updated.", "success")
+        return redirect(url_for("admin_order_detail", order_id=order_id))
+    items = db.execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
+    payments = db.execute("SELECT * FROM payments WHERE order_id=? ORDER BY created_at DESC", (order_id,)).fetchall()
+    return render_template("admin/order_detail.html", order=order, items=items, payments=payments)
+
+
+# Users
+@app.route("/admin/users")
+@admin_required
+def admin_users():
+    q = request.args.get("q", "").strip()
+    region = request.args.get("region", "").strip()
+    status = request.args.get("status", "").strip()
+    sql = "SELECT * FROM users WHERE role='customer'"; params = []
+    if q: sql += " AND (full_name LIKE ? OR email LIKE ?)"; params += [f"%{q}%"]*2
+    if region: sql += " AND region=?"; params.append(region)
+    if status: sql += " AND status=?"; params.append(status)
+    sql += " ORDER BY created_at DESC"
+    users = get_db().execute(sql, params).fetchall()
+    return render_template("admin/users.html", users=users, q=q, region=region, status=status)
+
+
+@app.route("/admin/users/<int:uid>")
+@admin_required
+def admin_user_detail(uid):
+    db = get_db()
+    u = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+    if not u: abort(404)
+    orders = db.execute("SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC", (uid,)).fetchall()
+    saved = db.execute("SELECT * FROM custom_smoothies WHERE user_id=? ORDER BY created_at DESC", (uid,)).fetchall()
+    addresses = db.execute("SELECT * FROM addresses WHERE user_id=?", (uid,)).fetchall()
+    return render_template("admin/user_detail.html", u=u, orders=orders, saved=saved, addresses=addresses)
+
+
