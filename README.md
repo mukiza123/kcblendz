@@ -154,3 +154,17 @@ kcblendz/
     └── admin/                       # dashboard, products, orders, users, categories, blogs, builder_config, reports, profile, messages, notifications
 ```
 
+## Feature tour
+
+### Multi-region storefront
+
+Three regions with currency, delivery and product-availability differences:
+
+| Region | Currency | Delivery | What ships |
+|--------|----------|----------|------------|
+| **Mauritius (HQ)** | MUR · Rs | Island-wide, 24 h | Full menu — fresh and shelf-stable |
+| **Nigeria** | NGN · ₦ | Lagos same-day for orders before 1pm, 1–3 days outside | Full menu — fresh and shelf-stable |
+| **Global** | USD · $ | DHL Express, 5–10 days | Shelf-stable only (dried fruits, fruit powders, freeze-dried, teas) |
+
+The region is forced on first visit through `/store` and can be changed any time from the navigation. Fresh products are hidden from the Global store automatically.
+
