@@ -451,3 +451,41 @@ class CartTests(unittest.TestCase):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Sandbox visibility — admin-only test cards
+# ─────────────────────────────────────────────────────────────────────────────
+class SandboxVisibilityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _fresh_db()
+        cls.client = kc.app.test_client()
+        with cls.client.session_transaction() as s:
+            s["region"] = "MU"
+        # Create an order to view the payment page
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute("""INSERT INTO orders (order_number, full_name, email, phone,
+                region, currency, subtotal, total, fulfillment_type, payment_method)
+                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                ("KC-TEST-001", "T A", "t@a.com", "+23055552222", "MU", "MUR",
+                 200, 200, "pickup", "card"))
+            db.commit()
+            cls.oid = db.execute(
+                "SELECT id FROM orders WHERE order_number='KC-TEST-001'"
+            ).fetchone()["id"]
+
+    def test_admin_sees_sandbox_test_cards(self):
+        _login(self.client, "admin@kcblendz.com", "KCBlendz@2026")
+        with self.client.session_transaction() as s:
+            s["region"] = "MU"
+        r = self.client.get(f"/payment/{self.oid}")
+        self.assertIn("Sandbox test cards", r.get_data(as_text=True))
+
+    def test_guest_does_not_see_sandbox(self):
+        client = kc.app.test_client()
+        with client.session_transaction() as s:
+            s["region"] = "MU"
+        r = client.get(f"/payment/{self.oid}")
+        self.assertNotIn("Sandbox test cards", r.get_data(as_text=True))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Seed data integrity
