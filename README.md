@@ -206,3 +206,43 @@ Bank transfer is the second option, with mandatory proof upload and region-aware
 - Dedicated `/account/favorites` page with one-click add-to-cart
 - The toggle works via both regular POST and XHR (the heart on the product page swaps state without a full page reload)
 
+### Wellness Hub
+
+Five long-form, original articles (7–10 minute reads each, 8–15 sections):
+
+1. Why turmeric belongs in your morning blend
+2. West African superfoods your gut absolutely loves
+3. Building the ultimate post-workout recovery smoothie
+4. Five smoothies that kill your afternoon energy slump
+5. The truth about detox drinks (and what actually works)
+
+Articles are markdown-rendered server-side — `**bold**` becomes `<strong>`, `## Heading` becomes an `<h2>`, `- item` becomes a list. Admin-editable through the blog CMS at `/admin/blogs`.
+
+### Customer dashboard
+
+- Dashboard overview with recent orders, saved blends and address book
+- Order history and detail with reorder button (re-adds every item to the cart)
+- Saved smoothies — custom builds named and ready for repeat orders
+- Multi-address book
+- Profile with password change
+- Favorites with count badges and quick add-to-cart
+- Notifications, auto-cleared on visit
+
+### Admin panel
+
+Strictly separated from the customer experience. Admins never see customer-only nav items (favorites heart, cart, "My Orders", saved blends, addresses) — they get an admin-focused dropdown with Admin Dashboard, Manage Orders, Manage Products, Customers, Reports and My profile. The admin sidebar has its own dedicated profile section where the admin can update name, phone and password (with current-password confirmation).
+
+| Section | Capabilities |
+|---------|--------------|
+| Dashboard | Today and month revenue, order counts, customer total, 7-day region revenue chart in a fixed-height container so the chart renders instantly at the right size |
+| Products | Full CRUD with image upload or URL, per-region availability, bestseller / new / featured flags, soft delete |
+| Categories | Add and list, with auto-slug |
+| Orders | Filter by status / region / search, detail view with line items, payment proof preview, status workflow (pending → processing → ready → delivered → cancelled) with customer notification |
+| Customers | Search and filter, CSV export, profile view, suspend / activate / delete / promote-to-admin |
+| Wellness Hub | Markdown-friendly editor, cover image upload, draft/publish toggle |
+| Builder Config | Manage cup sizes, fruits, bases, sweeteners, add-ons and boosters per region |
+| Reports | 30-day daily revenue, 12-month monthly, top 10 products, customer growth chart, region revenue comparison — every chart in a fixed-height container with quick animations |
+| Profile | Admin updates own name, phone and password (with stats card showing total products / orders / customers / actions) |
+| Messages | Contact-form inbox with handled flag |
+| Notifications | System events and admin-targeted alerts |
+
