@@ -329,3 +329,12 @@ Swap `sqlite3.connect()` and the `Row` factory in `get_db()` for `psycopg2` + `R
 - `date(...)` → `::date`
 - `strftime('%Y-%m', ...)` → `to_char(..., 'YYYY-MM')`
 
+## Going live with real payments
+
+The card-payment branch currently runs a sandbox flow — it validates the card properly (Luhn, expiry, CVV, brand) but does not actually charge. To go live, replace the `card` branch of `/payment/<id>/process`:
+
+- **Nigeria — Paystack**: initialise on the server, redirect to Paystack, verify via webhook before marking paid.
+- **Mauritius / Global — PayPal Smart Buttons** (client-side, capture on success), or **Stripe Elements** if you want one global processor.
+- **Bank transfer** — already production-ready: customer uploads proof, admin verifies at `/admin/orders/<id>`.
+
+The order schema already has `payment_reference`, `payment_status` and a `payments` table with `raw_payload`, so no migration is needed.
