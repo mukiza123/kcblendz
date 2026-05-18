@@ -1740,3 +1740,39 @@ def login():
     return render_template("auth/login.html", email="")
 
 
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        phone = request.form.get("phone", "").strip()
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm", "")
+        errors = []
+        if not full_name: errors.append("Full name is required.")
+        if not valid_email(email): errors.append("Enter a valid email.")
+        if not valid_phone(phone): errors.append("Enter a valid phone number.")
+        if len(password) < 8: errors.append("Password must be at least 8 characters.")
+        # Only validate "passwords match" when a confirm field is actually submitted
+        if confirm and password != confirm: errors.append("Passwords do not match.")
+        if get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
+            errors.append("This email is already registered.")
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            return render_template("auth/register.html", form=request.form)
+        get_db().execute("""INSERT INTO users (email, password_hash, full_name, phone, region)
+            VALUES (?,?,?,?,?)""",
+            (email, generate_password_hash(password), full_name, phone, current_region()))
+        uid = get_db().execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        get_db().commit()
+        session.clear()
+        session["uid"] = uid
+        session.permanent = True
+        notify_admins(f"New customer: {full_name}", f"{email} just registered.")
+        audit("auth.register", "user", uid)
+        flash("Welcome to KCBlendz — your account is ready.", "success")
+        return redirect(request.args.get("next") or url_for("account_dashboard"))
+    return render_template("auth/register.html", form={})
+
+
