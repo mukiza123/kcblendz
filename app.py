@@ -80,6 +80,37 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     is_active INTEGER NOT NULL DEFAULT 1
 );
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number TEXT UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    guest_email TEXT,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    region TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    subtotal REAL NOT NULL,
+    delivery_fee REAL NOT NULL DEFAULT 0,
+    total REAL NOT NULL,
+    payment_method TEXT,
+    payment_status TEXT NOT NULL DEFAULT 'pending',
+    order_status TEXT NOT NULL DEFAULT 'pending',
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    smoothie_id INTEGER,
+    item_type TEXT NOT NULL DEFAULT 'product',
+    name_snapshot TEXT NOT NULL,
+    unit_price REAL NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    line_total REAL NOT NULL
+);
 """
 
 # ─── DB ─────────────────────────────────────────────────────────────────────
