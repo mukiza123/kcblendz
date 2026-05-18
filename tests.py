@@ -372,3 +372,27 @@ class FavoritesAndReviewsTests(unittest.TestCase):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Custom smoothie image helper
+# ─────────────────────────────────────────────────────────────────────────────
+class CustomBlendImageTests(unittest.TestCase):
+    def test_returns_image_for_known_fruit(self):
+        img = kc.image_for_blend(["Mango"])
+        self.assertTrue(img.startswith("https://"))
+        self.assertIn("unsplash", img)
+
+    def test_falls_back_for_empty_list(self):
+        img = kc.image_for_blend([])
+        self.assertEqual(img, kc.DEFAULT_BLEND_IMAGE)
+
+    def test_uses_first_fruit_for_dominant(self):
+        # Mango first → mango photo, not strawberry
+        mango_only = kc.image_for_blend(["Mango"])
+        strawberry_first = kc.image_for_blend(["Strawberry", "Mango"])
+        self.assertEqual(mango_only, kc.CUSTOM_BLEND_IMAGE_BY_FRUIT["Mango"])
+        self.assertEqual(strawberry_first, kc.CUSTOM_BLEND_IMAGE_BY_FRUIT["Strawberry"])
+
+    def test_unknown_fruit_uses_default(self):
+        self.assertEqual(kc.image_for_blend(["Dragonfruit"]), kc.DEFAULT_BLEND_IMAGE)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Region & currency helpers
