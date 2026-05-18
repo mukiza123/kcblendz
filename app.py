@@ -1009,3 +1009,12 @@ def check_csrf():
     return tok and hmac.compare_digest(tok, session.get("_csrf", ""))
 
 
+@app.before_request
+def enforce_csrf():
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        if request.path.startswith("/api/"):
+            return  # api uses JSON + session
+        if not check_csrf():
+            abort(400, "Invalid CSRF token")
+
+
