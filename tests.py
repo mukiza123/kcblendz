@@ -44,6 +44,20 @@ def _csrf(client, route="/login"):
         return ses.get("_csrf")
 
 
+
+
+def _login(client, email, password):
+    """Log in and return the session uid (or None on failure)."""
+    tok = _csrf(client, "/login")
+    r = client.post(
+        "/login",
+        data={"_csrf": tok, "email": email, "password": password},
+        follow_redirects=False,
+    )
+    with client.session_transaction() as ses:
+        return ses.get("uid"), r.status_code
+
+
 class _BaseDB(unittest.TestCase):
     def setUp(self):
         _fresh_db()
