@@ -158,4 +158,60 @@ CREATE TABLE IF NOT EXISTS custom_smoothies (
     currency TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number TEXT UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    guest_email TEXT,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    region TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    subtotal REAL NOT NULL,
+    delivery_fee REAL NOT NULL DEFAULT 0,
+    total REAL NOT NULL,
+    fulfillment_type TEXT NOT NULL,   -- delivery | pickup
+    delivery_address TEXT,
+    delivery_city TEXT,
+    delivery_state TEXT,
+    delivery_country TEXT,
+    delivery_date TEXT,
+    delivery_slot TEXT,
+    notes TEXT,
+    payment_method TEXT NOT NULL,    -- card | paypal | bank_transfer
+    payment_status TEXT NOT NULL DEFAULT 'pending',  -- pending | paid | failed | refunded
+    payment_reference TEXT,
+    payment_proof_url TEXT,
+    order_status TEXT NOT NULL DEFAULT 'pending',    -- pending | processing | ready | delivered | cancelled
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    custom_smoothie_id INTEGER REFERENCES custom_smoothies(id) ON DELETE SET NULL,
+    item_name TEXT NOT NULL,
+    item_image TEXT,
+    item_meta TEXT,
+    unit_price REAL NOT NULL,
+    quantity INTEGER NOT NULL,
+    line_total REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    method TEXT NOT NULL,
+    gateway TEXT,                 -- paystack | paypal | manual
+    reference TEXT,
+    amount REAL NOT NULL,
+    currency TEXT NOT NULL,
+    status TEXT NOT NULL,
+    raw_payload TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
