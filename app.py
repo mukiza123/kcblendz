@@ -1400,3 +1400,98 @@ def delivery_fee_for(region, city=None):
         return 12.99
     return 0.0
 
+
+@app.route("/checkout", methods=["GET", "POST"])
+@region_required
+def checkout():
+    cart_clear_if_region_change()
+    cart = get_cart()
+    if not cart["items"]:
+        flash("Your cart is empty.", "info")
+        return redirect(url_for("shop"))
+    region = current_region()
+    currency = currency_for_region(region)
+    subtotal = cart_subtotal()
+    u = current_user()
+
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        phone = request.form.get("phone", "").strip()
+        fulfillment = request.form.get("fulfillment", "delivery")
+        address = request.form.get("address", "").strip()
+        city = request.form.get("city", "").strip()
+        state = request.form.get("state", "").strip()
+        country = REGIONS[region]["name"]
+        delivery_date = request.form.get("delivery_date", "")
+        delivery_slot = request.form.get("delivery_slot", "")
+        notes = request.form.get("notes", "").strip()
+        payment_method = request.form.get("payment_method", "card")
+
+        # Validate
+        errors = []
+        if not full_name: errors.append("Full name is required.")
+        if not valid_email(email): errors.append("Valid email is required.")
+        if not valid_phone(phone): errors.append("Valid WhatsApp / phone number is required.")
+        if fulfillment == "delivery" and (not address or not city):
+            errors.append("Delivery address and city are required.")
+        if payment_method not in ("card", "paypal", "bank_transfer"):
+            errors.append("Choose a valid payment method.")
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            return render_template("public/checkout.html", cart=cart, subtotal=subtotal,
+                                   delivery_fee=delivery_fee_for(region), region=region,
+                                   currency=currency, form=request.form)
+
+        delivery_fee = delivery_fee_for(region, city) if fulfillment == "delivery" else 0.0
+        total = subtotal + delivery_fee
+
+        order_number = f"KCB-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
+        db = get_db()
+        db.execute("""INSERT INTO orders (order_number, user_id, guest_email, full_name, email, phone, region, currency,
+            subtotal, delivery_fee, total, fulfillment_type, delivery_address, delivery_city, delivery_state, delivery_country,
+            delivery_date, delivery_slot, notes, payment_method)
+            VALUES (?,?,?,?,?,?,?,?, ?,?,?, ?,?,?,?,?, ?,?,?, ?)""", (
+            order_number, u["id"] if u else None, None if u else email,
+            full_name, email, phone, region, currency,
+            subtotal, delivery_fee, total, fulfillment,
+            address if fulfillment == "delivery" else None,
+            city if fulfillment == "delivery" else None,
+            state if fulfillment == "delivery" else None,
+            country if fulfillment == "delivery" else None,
+            delivery_date or None, delivery_slot or None, notes or None, payment_method
+        ))
+        order_id = db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+        for item in cart["items"]:
+            db.execute("""INSERT INTO order_items (order_id, product_id, custom_smoothie_id,
+                item_name, item_image, item_meta, unit_price, quantity, line_total)
+                VALUES (?,?,?,?,?,?,?,?,?)""", (
+                order_id,
+                item.get("product_id"),
+                item.get("custom_smoothie_id"),
+                item["name"],
+                item.get("image"),
+                item.get("meta", ""),
+                item["unit_price"],
+                item["quantity"],
+                float(item["unit_price"]) * int(item["quantity"]),
+            ))
+        db.commit()
+
+        # Clear cart
+        session["cart"] = {"items": [], "region": region}
+        notify_admins(f"New order {order_number}", f"{full_name} placed an order totalling {format_money(total, region)}.",
+                      url_for("admin_order_detail", order_id=order_id))
+        if u:
+            notify(u["id"], f"Order {order_number} received",
+                   f"We've received your order. Awaiting payment.",
+                   url_for("account_order_detail", order_id=order_id))
+        audit("order.create", "order", order_id, {"total": total, "region": region})
+        return redirect(url_for("payment", order_id=order_id))
+
+    return render_template("public/checkout.html", cart=cart, subtotal=subtotal,
+                           delivery_fee=delivery_fee_for(region), region=region,
+                           currency=currency, form={})
+
