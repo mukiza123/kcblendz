@@ -56,3 +56,18 @@ def _login(client, email, password):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Card validation — pure functions, no test client needed.
+# ─────────────────────────────────────────────────────────────────────────────
+class CardValidationTests(unittest.TestCase):
+    def test_luhn_accepts_valid_visa(self):
+        self.assertTrue(kc.luhn_check("4242424242424242"))
+
+    def test_luhn_accepts_valid_mastercard(self):
+        self.assertTrue(kc.luhn_check("5555555555554444"))
+
+    def test_luhn_rejects_invalid_number(self):
+        self.assertFalse(kc.luhn_check("1234567812345678"))
+
+    def test_luhn_rejects_short_numbers(self):
+        self.assertFalse(kc.luhn_check("1234"))
+
