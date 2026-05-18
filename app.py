@@ -673,6 +673,54 @@ def account_profile():
         return redirect(url_for("account_profile"))
     return render_template("account/profile.html", user=user)
 
+
+@app.route("/account/favorites")
+@login_required
+def account_favorites():
+    db = get_db()
+    rows = db.execute(
+        """SELECT p.* FROM favorites f JOIN products p ON p.id = f.product_id
+           WHERE f.user_id = ? AND p.is_active = 1 ORDER BY f.created_at DESC""",
+        (session["uid"],)
+    ).fetchall()
+    return render_template("account/favorites.html", products=rows)
+
+
+@app.route("/favorites/toggle/<int:pid>", methods=["POST"])
+@login_required
+def favorite_toggle(pid):
+    db = get_db()
+    existing = db.execute(
+        "SELECT id FROM favorites WHERE user_id = ? AND product_id = ?",
+        (session["uid"], pid)
+    ).fetchone()
+    if existing:
+        db.execute("DELETE FROM favorites WHERE id = ?", (existing["id"],))
+    else:
+        db.execute("INSERT INTO favorites (user_id, product_id) VALUES (?, ?)",
+                   (session["uid"], pid))
+    db.commit()
+    return redirect(request.referrer or url_for("shop"))
+
+
+@app.route("/account/orders/<int:order_id>/reorder", methods=["POST"])
+@login_required
+def account_reorder(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ? AND user_id = ?",
+                       (order_id, session["uid"])).fetchone()
+    if not order:
+        abort(404)
+    items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+    cart_l = _get_cart()
+    for it in items:
+        if it["product_id"]:
+            cart_l.append({"key": secrets.token_hex(8), "type": "product",
+                           "product_id": it["product_id"], "qty": it["quantity"]})
+    session.modified = True
+    flash("Items added to cart.", "success")
+    return redirect(url_for("cart"))
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
