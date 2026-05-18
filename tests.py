@@ -125,3 +125,24 @@ class CardValidationTests(unittest.TestCase):
 # ─────────────────────────────────────────────────────────────────────────────
 # Public route smoke tests
 # ─────────────────────────────────────────────────────────────────────────────
+class PublicRouteTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _fresh_db()
+
+    def setUp(self):
+        self.client = kc.app.test_client()
+        with self.client.session_transaction() as s:
+            s["region"] = "MU"
+
+    def test_homepage_returns_200(self):
+        r = self.client.get("/home")
+        self.assertEqual(r.status_code, 200)
+
+    def test_shop_returns_200(self):
+        r = self.client.get("/shop")
+        self.assertEqual(r.status_code, 200)
+
+    def test_builder_returns_200(self):
+        r = self.client.get("/builder")
+        self.assertEqual(r.status_code, 200)
