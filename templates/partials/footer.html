@@ -1,0 +1,40 @@
+<footer class="bg-[var(--kc-dark)] text-white mt-16">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid md:grid-cols-4 gap-8">
+    <div>
+      <h3 class="brand text-2xl mb-3">KCBlendz</h3>
+      <p class="text-sm opacity-80">Nourishing lives, inspiring wellness — one blend at a time.</p>
+    </div>
+
+    <div>
+      <h4 class="font-semibold mb-3">Shop</h4>
+      <ul class="space-y-2 text-sm opacity-80">
+        <li><a href="#">Smoothies</a></li>
+        <li><a href="#">Juices</a></li>
+        <li><a href="#">Builder</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h4 class="font-semibold mb-3">Company</h4>
+      <ul class="space-y-2 text-sm opacity-80">
+        <li><a href="#">About</a></li>
+        <li><a href="#">Contact</a></li>
+        <li><a href="#">Wellness</a></li>
+      </ul>
+    </div>
+
+    <div>
+      <h4 class="font-semibold mb-3">Newsletter</h4>
+      <form method="POST" action="{{ url_for('root') }}" class="flex gap-2">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() if csrf_token else '' }}">
+        <input type="email" name="email" required placeholder="you@example.com"
+               class="flex-1 px-3 py-2 rounded text-[var(--kc-dark)]">
+        <button class="px-4 py-2 bg-[var(--kc-orange)] rounded font-semibold">Join</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="border-t border-white/10 py-4 text-center text-xs opacity-60">
+    &copy; {{ 2025 }} KCBlendz. All rights reserved.
+  </div>
+</footer>
