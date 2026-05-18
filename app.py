@@ -883,3 +883,39 @@ def init_db():
     conn.close()
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS — region, currency, auth, security
+# ─────────────────────────────────────────────────────────────────────────────
+REGIONS = {
+    "NG": {"name": "Nigeria",   "currency": "NGN", "symbol": "₦",   "code": "NG"},
+    "MU": {"name": "Mauritius", "currency": "MUR", "symbol": "Rs ", "code": "MU"},
+    "GL": {"name": "Global",    "currency": "USD", "symbol": "$",   "code": "GL"},
+}
+
+
+def current_region():
+    code = session.get("region", "")
+    return code if code in REGIONS else None
+
+
+def currency_for_region(region):
+    return REGIONS.get(region, REGIONS["NG"])["currency"]
+
+
+def price_field_for(region):
+    return {"NG": "price_ngn", "MU": "price_mur", "GL": "price_usd"}.get(region, "price_ngn")
+
+
+def availability_field_for(region):
+    return {"NG": "is_available_ng", "MU": "is_available_mu", "GL": "is_available_global"}.get(region, "is_available_ng")
+
+
+def format_money(amount, region):
+    if amount is None:
+        return "—"
+    info = REGIONS.get(region, REGIONS["NG"])
+    if info["currency"] == "USD":
+        return f"${amount:,.2f}"
+    return f"{info['symbol']}{amount:,.0f}"
+
+
