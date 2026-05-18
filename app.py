@@ -998,3 +998,9 @@ def save_upload(file_storage):
 
 
 # CSRF — lightweight, session-bound
+def csrf_token():
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_urlsafe(32)
+    return session["_csrf"]
+
+
