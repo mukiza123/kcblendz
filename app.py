@@ -1028,3 +1028,10 @@ def security_headers(response):
 
 
 # Validation helpers
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PHONE_RE = re.compile(r"^[\d+\-\s()]{7,20}$")
+
+
+def valid_email(s):
+    return bool(s and EMAIL_RE.match(s.strip()))
+
