@@ -3,11 +3,30 @@ KCBlendz — Premium Smoothie & Wellness E-commerce Platform.
 
 Monolithic Flask application backed by SQLite.
 """
+import os
+import secrets
+from datetime import timedelta
 from pathlib import Path
+
 from flask import Flask
 
+# ─── Paths ──────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "kcblendz.db"
+UPLOAD_FOLDER = BASE_DIR / "static" / "uploads"
+ALLOWED_IMAGE_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
+MAX_UPLOAD_MB = 8
+
 app = Flask(__name__)
+app.config.update(
+    SECRET_KEY=os.environ.get("KCB_SECRET", secrets.token_hex(32)),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    MAX_CONTENT_LENGTH=MAX_UPLOAD_MB * 1024 * 1024,
+    UPLOAD_FOLDER=str(UPLOAD_FOLDER),
+)
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
 @app.route("/")
