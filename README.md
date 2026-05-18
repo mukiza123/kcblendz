@@ -35,3 +35,14 @@ py app.py
 ```
 
 Then open <http://localhost:5000>.
+
+## Environment variables
+
+| Variable           | Purpose                                                 | Default      |
+| ------------------ | ------------------------------------------------------- | ------------ |
+| `KCB_SECRET`       | Flask session signing key. Set to a high-entropy value. | random/dev   |
+| `KCB_DB_PATH`      | Path to the SQLite database file.                       | `kcblendz.db`|
+| `KCB_FORCE_SECURE` | Set to `1` behind HTTPS to mark session cookies Secure. | `0`          |
+| `PORT`             | Web server bind port (injected by Railway/Heroku).      | `5000`       |
+
+See `.env.example` for a template. Never commit `.env`.
