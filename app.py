@@ -956,3 +956,13 @@ def region_required(view):
     return wrapper
 
 
+def audit(action, entity=None, entity_id=None, meta=None):
+    u = current_user()
+    get_db().execute(
+        "INSERT INTO audit_logs (user_id, action, entity, entity_id, ip_address, meta) VALUES (?,?,?,?,?,?)",
+        (u["id"] if u else None, action, entity, entity_id, request.remote_addr,
+         json.dumps(meta) if meta else None),
+    )
+    get_db().commit()
+
+
