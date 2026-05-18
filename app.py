@@ -743,6 +743,82 @@ def admin_dashboard():
     ).fetchall()
     return render_template("admin/dashboard.html", kpis=kpis, recent_orders=recent_orders)
 
+
+@app.route("/admin/products")
+@admin_required
+def admin_products():
+    db = get_db()
+    rows = db.execute(
+        """SELECT p.*, c.name AS category_name FROM products p
+           LEFT JOIN categories c ON c.id = p.category_id
+           ORDER BY p.created_at DESC"""
+    ).fetchall()
+    return render_template("admin/products.html", products=rows)
+
+
+@app.route("/admin/products/new", methods=["GET", "POST"])
+@admin_required
+def admin_product_new():
+    db = get_db()
+    cats = db.execute("SELECT * FROM categories ORDER BY sort_order").fetchall()
+    if request.method == "POST":
+        _admin_product_save(None, cats)
+        return redirect(url_for("admin_products"))
+    return render_template("admin/product_form.html", product=None, categories=cats)
+
+
+@app.route("/admin/products/<int:pid>/edit", methods=["GET", "POST"])
+@admin_required
+def admin_product_edit(pid):
+    db = get_db()
+    product = db.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
+    if not product:
+        abort(404)
+    cats = db.execute("SELECT * FROM categories ORDER BY sort_order").fetchall()
+    if request.method == "POST":
+        _admin_product_save(product, cats)
+        return redirect(url_for("admin_products"))
+    return render_template("admin/product_form.html", product=product, categories=cats)
+
+
+def _admin_product_save(product, categories):
+    db = get_db()
+    from security.sanitize import sanitize_slug, clean_text
+    slug = sanitize_slug(request.form.get("slug") or request.form.get("name") or "")
+    fields = {
+        "slug": slug,
+        "name": clean_text(request.form.get("name"), 120),
+        "short_description": clean_text(request.form.get("short_description"), 200),
+        "description": clean_text(request.form.get("description"), 2000),
+        "ingredients": clean_text(request.form.get("ingredients"), 500),
+        "category_id": int(request.form.get("category_id") or 0) or None,
+        "price_mur": float(request.form.get("price_mur") or 0) or None,
+        "price_ngn": float(request.form.get("price_ngn") or 0) or None,
+        "price_usd": float(request.form.get("price_usd") or 0) or None,
+        "is_active": 1 if request.form.get("is_active") else 0,
+        "is_featured": 1 if request.form.get("is_featured") else 0,
+    }
+    if product:
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        db.execute(f"UPDATE products SET {sets} WHERE id = ?",
+                   list(fields.values()) + [product["id"]])
+    else:
+        cols = ", ".join(fields.keys())
+        marks = ", ".join("?" for _ in fields)
+        db.execute(f"INSERT INTO products ({cols}) VALUES ({marks})", list(fields.values()))
+    db.commit()
+    flash("Product saved.", "success")
+
+
+@app.route("/admin/products/<int:pid>/delete", methods=["POST"])
+@admin_required
+def admin_product_delete(pid):
+    db = get_db()
+    db.execute("UPDATE products SET is_active = 0 WHERE id = ?", (pid,))
+    db.commit()
+    flash("Product archived.", "success")
+    return redirect(url_for("admin_products"))
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
