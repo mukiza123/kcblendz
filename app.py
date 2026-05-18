@@ -819,6 +819,40 @@ def admin_product_delete(pid):
     flash("Product archived.", "success")
     return redirect(url_for("admin_products"))
 
+
+@app.route("/admin/orders")
+@admin_required
+def admin_orders():
+    db = get_db()
+    status = request.args.get("status") or ""
+    q = ["SELECT * FROM orders"]
+    params = []
+    if status:
+        q.append("WHERE order_status = ?")
+        params.append(status)
+    q.append("ORDER BY created_at DESC LIMIT 200")
+    rows = db.execute(" ".join(q), params).fetchall()
+    return render_template("admin/orders.html", orders=rows, status=status)
+
+
+@app.route("/admin/orders/<int:order_id>", methods=["GET", "POST"])
+@admin_required
+def admin_order_detail(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    if request.method == "POST":
+        new_status = request.form.get("order_status")
+        if new_status in ("pending", "confirmed", "shipped", "delivered", "cancelled"):
+            db.execute("UPDATE orders SET order_status = ? WHERE id = ?",
+                       (new_status, order_id))
+            db.commit()
+            flash("Order updated.", "success")
+            return redirect(url_for("admin_order_detail", order_id=order_id))
+    items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+    return render_template("admin/order_detail.html", order=order, items=items)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
