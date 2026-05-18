@@ -369,6 +369,55 @@ def api_builder_price():
     return jsonify({"price": total, "currency": region})
 
 
+
+# ─── Payments ──────────────────────────────────────────────────────────────
+def luhn_check(card_number: str) -> bool:
+    digits = [int(c) for c in (card_number or "") if c.isdigit()]
+    if not (12 <= len(digits) <= 19):
+        return False
+    s, alt = 0, False
+    for d in reversed(digits):
+        if alt:
+            d *= 2
+            if d > 9:
+                d -= 9
+        s += d
+        alt = not alt
+    return s % 10 == 0
+
+
+def detect_card_brand(card_number: str) -> str:
+    n = "".join(c for c in (card_number or "") if c.isdigit())
+    if not n:
+        return "unknown"
+    if n.startswith("4"):
+        return "visa"
+    if 51 <= int(n[:2] or 0) <= 55 or 2221 <= int(n[:4] or 0) <= 2720:
+        return "mastercard"
+    if n[:2] in ("34", "37"):
+        return "amex"
+    if n.startswith("6011") or n.startswith("65"):
+        return "discover"
+    return "unknown"
+
+
+def validate_card_form(form):
+    errors = []
+    number = (form.get("card_number") or "").replace(" ", "")
+    if not luhn_check(number):
+        errors.append("Invalid card number.")
+    name = (form.get("card_name") or "").strip()
+    if not name or len(name) < 2:
+        errors.append("Cardholder name required.")
+    exp = (form.get("card_exp") or "").strip()
+    import re as _re
+    if not _re.match(r"^(0[1-9]|1[0-2])/\d{2}$", exp):
+        errors.append("Expiry must be MM/YY.")
+    cvc = (form.get("card_cvc") or "").strip()
+    if not cvc.isdigit() or not (3 <= len(cvc) <= 4):
+        errors.append("CVC must be 3 or 4 digits.")
+    return errors
+
 # ─── Cart ──────────────────────────────────────────────────────────────────
 def _get_cart():
     return session.setdefault("cart", [])
