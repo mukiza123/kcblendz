@@ -853,6 +853,50 @@ def admin_order_detail(order_id):
     items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
     return render_template("admin/order_detail.html", order=order, items=items)
 
+
+@app.route("/admin/users")
+@admin_required
+def admin_users():
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, email, full_name, phone, role, status, created_at FROM users ORDER BY created_at DESC"
+    ).fetchall()
+    return render_template("admin/users.html", users=rows)
+
+
+@app.route("/admin/users/<int:uid>")
+@admin_required
+def admin_user_detail(uid):
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    if not user:
+        abort(404)
+    orders = db.execute(
+        "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC", (uid,)
+    ).fetchall()
+    return render_template("admin/user_detail.html", user=user, orders=orders)
+
+
+@app.route("/admin/users/export.csv")
+@admin_required
+def admin_users_export():
+    import csv, io
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, email, full_name, phone, role, status, created_at FROM users ORDER BY id"
+    ).fetchall()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["id", "email", "full_name", "phone", "role", "status", "created_at"])
+    for r in rows:
+        w.writerow([r["id"], r["email"], r["full_name"], r["phone"] or "",
+                    r["role"], r["status"], r["created_at"]])
+    from flask import make_response
+    resp = make_response(buf.getvalue())
+    resp.headers["Content-Type"] = "text/csv"
+    resp.headers["Content-Disposition"] = "attachment; filename=kcb_users.csv"
+    return resp
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
