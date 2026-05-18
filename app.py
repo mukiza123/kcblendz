@@ -290,6 +290,13 @@ def register():
                 return redirect(url_for("login"))
     return render_template("auth/register.html")
 
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    flash("Signed out.", "success")
+    return redirect(url_for("root"))
+
 @app.route("/")
 def root():
     return "KCBlendz is alive."
