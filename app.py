@@ -101,4 +101,38 @@ CREATE TABLE IF NOT EXISTS addresses (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    short_description TEXT,
+    description TEXT,
+    ingredients TEXT,
+    health_benefits TEXT,
+    category_id INTEGER REFERENCES categories(id),
+    image_url TEXT,
+    price_ngn REAL,
+    price_mur REAL,
+    price_usd REAL,
+    stock INTEGER NOT NULL DEFAULT 100,
+    is_available_ng INTEGER NOT NULL DEFAULT 1,
+    is_available_mu INTEGER NOT NULL DEFAULT 1,
+    is_available_global INTEGER NOT NULL DEFAULT 0,  -- only shelf-stable for Global
+    is_featured INTEGER NOT NULL DEFAULT 0,
+    is_bestseller INTEGER NOT NULL DEFAULT 0,
+    is_new INTEGER NOT NULL DEFAULT 0,
+    tags TEXT,  -- comma separated: tropical,detox,energy,...
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    is_active INTEGER NOT NULL DEFAULT 1
+);
 """
