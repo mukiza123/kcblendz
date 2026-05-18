@@ -947,3 +947,12 @@ def admin_required(view):
     return wrapper
 
 
+def region_required(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if not current_region():
+            return redirect(url_for("store_select", next=request.path))
+        return view(*args, **kwargs)
+    return wrapper
+
+
