@@ -1035,3 +1035,8 @@ PHONE_RE = re.compile(r"^[\d+\-\s()]{7,20}$")
 def valid_email(s):
     return bool(s and EMAIL_RE.match(s.strip()))
 
+
+def valid_phone(s):
+    return bool(s and PHONE_RE.match(s.strip()))
+
+
