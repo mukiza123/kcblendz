@@ -27,5 +27,12 @@ jobs:
           py -m pip install --upgrade pip
           pip install -r requirements.txt
 
+
+      - name: Install lint tools
+        run: pip install flake8
+
+      - name: Lint with flake8
+        run: flake8 .
+
       - name: Smoke import
         run: py -c "import app; print('ok')"
