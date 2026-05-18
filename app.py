@@ -1527,3 +1527,16 @@ def detect_card_brand(card_number: str) -> str:
     return "card"
 
 
+def validate_card_form(form):
+    """Returns (ok, errors, sanitised_data) for the card form."""
+    errors = []
+    raw_number = form.get("card_number", "").strip()
+    number = "".join(c for c in raw_number if c.isdigit())
+    name = form.get("card_name", "").strip()
+    exp = form.get("card_expiry", "").strip()    # MM/YY
+    cvv = form.get("card_cvv", "").strip()
+
+    if not number or not luhn_check(number):
+        errors.append("Please enter a valid card number.")
+    if not name or len(name) < 2:
+        errors.append("Please enter the cardholder name as it appears on the card.")
