@@ -966,3 +966,20 @@ def audit(action, entity=None, entity_id=None, meta=None):
     get_db().commit()
 
 
+def notify(user_id, title, body=None, link=None, audience="user"):
+    get_db().execute(
+        "INSERT INTO notifications (user_id, audience, title, body, link) VALUES (?,?,?,?,?)",
+        (user_id, audience, title, body, link),
+    )
+    get_db().commit()
+
+
+def notify_admins(title, body=None, link=None):
+    db = get_db()
+    admins = db.execute("SELECT id FROM users WHERE role='admin' AND status='active'").fetchall()
+    for a in admins:
+        db.execute("INSERT INTO notifications (user_id, audience, title, body, link) VALUES (?,?,?,?,?)",
+                   (a["id"], "admin", title, body, link))
+    db.commit()
+
+
