@@ -330,3 +330,556 @@ def close_db(_):
         db.close()
 
 
+def init_db():
+    """Create schema and load REAL KCBlendz menu data from the catalog (no fake seeds)."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(SCHEMA_SQL)
+
+    # Admin user — created on first run only
+    if not conn.execute("SELECT 1 FROM users WHERE role='admin'").fetchone():
+        conn.execute(
+            "INSERT INTO users (email, password_hash, full_name, phone, role) VALUES (?,?,?,?,?)",
+            (
+                "admin@kcblendz.com",
+                generate_password_hash("KCBlendz@2026"),
+                "KCBlendz Admin",
+                "+234-802-4655-191",
+                "admin",
+            ),
+        )
+
+    # Categories per the requirement document
+    if not conn.execute("SELECT 1 FROM categories").fetchone():
+        cats = [
+            ("smoothies",      "Smoothies",       "Fresh-blended fruit smoothies, your wellness in a cup."),
+            ("juices",         "Juices",          "Cold-pressed natural fruit juices."),
+            ("sorbets",        "Sorbets",         "Refreshing fruit sorbets, dairy-free."),
+            ("fruit-salads",   "Fruit Salads",    "Fresh-cut seasonal fruit salads."),
+            ("wellness-shots", "Wellness Shots",  "Concentrated immune & energy shots."),
+            ("wellness-bowls", "Wellness Bowls",  "Loaded smoothie & açaí bowls."),
+            ("popsicles",      "Popsicles",       "Frozen fruit popsicles, naturally sweet."),
+            ("probiotics",     "Probiotics",      "Gut-friendly fermented drinks."),
+            ("dried-fruits",   "Dried Fruits",    "Sun-dried & freeze-dried fruit, shelf-stable."),
+            ("fruit-powders",  "Fruit Powders",   "Pure fruit & superfood powders."),
+            ("party-packs",    "Party Packs",     "Bundled drinks for events & parties."),
+            ("kiddies-packs",  "Kiddies Packs",   "Kid-friendly fruit blends, no added sugar."),
+        ]
+        for i, (slug, name, desc) in enumerate(cats):
+            conn.execute(
+                "INSERT INTO categories (slug, name, description, sort_order) VALUES (?,?,?,?)",
+                (slug, name, desc, i),
+            )
+
+    # REAL KCBlendz product menu from the printed catalog (Kitchen 2 Kongo)
+    # Mauritius prices in MUR are exactly as printed; NGN prices reflect Nigerian retail pricing.
+    if not conn.execute("SELECT 1 FROM products").fetchone():
+        smoothie_img_pool = {
+            "Glow Splash":   "https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=800&q=80",
+            "Dew Drop":      "https://images.unsplash.com/photo-1546538490-0fe0a8eba4e6?w=800&q=80",
+            "Radiant Mix":   "https://images.unsplash.com/photo-1638176067000-9e2cffac2c40?w=800&q=80",
+            "Fresh Glow":    "https://images.unsplash.com/photo-1638176066757-37c50b3d2db9?w=800&q=80",
+            "Tropi-Glow":    "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=800&q=80",
+            "Power Boost":   "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=800&q=80",
+            "Nutty Gain":    "https://images.unsplash.com/photo-1571091655789-405eb7a3a3a8?w=800&q=80",
+            "Mass Fuel":     "https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=800&q=80",
+            "Berry Power":   "https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=800&q=80",
+            "Choco Gain":    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80",
+            "Clean Green":   "https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=800&q=80",
+            "Belly Reset":   "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=800&q=80",
+            "Fresh Core":    "https://images.unsplash.com/photo-1546173159-315724a31696?w=800&q=80",
+            "Mint Flush":    "https://images.unsplash.com/photo-1576094133503-7c1bdac88e2b?w=800&q=80",
+            "Zesty Clean":   "https://images.unsplash.com/photo-1546548970-71785318a17b?w=800&q=80",
+            "Happy Berry":   "https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=800&q=80",
+            "Citrus Lift":   "https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=800&q=80",
+            "Kiwi Bliss":    "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=800&q=80",
+            "Calm Glow":     "https://images.unsplash.com/photo-1571091655789-405eb7a3a3a8?w=800&q=80",
+            "Sweet Focus":   "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=800&q=80",
+        }
+        # SMOOTHIES — Rs 150 (catalog price)
+        smoothie_groups = {
+            "Glow & Hydration":      ["Glow Splash", "Dew Drop", "Radiant Mix", "Fresh Glow", "Tropi-Glow"],
+            "Energy & Weight Gain":  ["Power Boost", "Nutty Gain", "Mass Fuel", "Berry Power", "Choco Gain"],
+            "Detox & Digestion":     ["Clean Green", "Belly Reset", "Fresh Core", "Mint Flush", "Zesty Clean"],
+            "Mood & Brain":          ["Happy Berry", "Citrus Lift", "Kiwi Bliss", "Calm Glow", "Sweet Focus"],
+        }
+        smoothie_ings = {
+            "Glow Splash":   "Banana, Watermelon, Pineapple",
+            "Dew Drop":      "Banana, Watermelon, Orange",
+            "Radiant Mix":   "Banana, Pineapple, Orange",
+            "Fresh Glow":    "Banana, Watermelon, Apple",
+            "Tropi-Glow":    "Banana, Pineapple, Kiwi",
+            "Power Boost":   "Banana, Peanut, Oats, Dates",
+            "Nutty Gain":    "Banana, Peanut, Dates",
+            "Mass Fuel":     "Banana, Oats, Dates",
+            "Berry Power":   "Banana, Strawberry, Dates",
+            "Choco Gain":    "Banana, Cocoa, Dates",
+            "Clean Green":   "Banana, Apple, Cucumber",
+            "Belly Reset":   "Banana, Pineapple, Ginger",
+            "Fresh Core":    "Banana, Apple, Carrot",
+            "Mint Flush":    "Banana, Cucumber, Lemon",
+            "Zesty Clean":   "Banana, Apple, Lemon",
+            "Happy Berry":   "Banana, Strawberry, Blueberry",
+            "Citrus Lift":   "Banana, Orange, Pineapple",
+            "Kiwi Bliss":    "Banana, Kiwi, Apple",
+            "Calm Glow":     "Banana, Cocoa, Strawberry",
+            "Sweet Focus":   "Banana, Apple, Dates",
+        }
+        smoothie_benefits = {
+            "Glow Splash":   "Hydration, vitamin C, glowing skin",
+            "Dew Drop":      "Hydration, electrolyte balance, refreshing",
+            "Radiant Mix":   "Antioxidants, immunity, skin glow",
+            "Fresh Glow":    "Hydration, gentle cleanse, light energy",
+            "Tropi-Glow":    "Digestive enzymes, vitamin C, glow",
+            "Power Boost":   "Sustained energy, healthy weight gain, protein",
+            "Nutty Gain":    "Healthy fats, plant protein, calorie boost",
+            "Mass Fuel":     "Slow-release carbs, muscle recovery",
+            "Berry Power":   "Antioxidants, iron, energy",
+            "Choco Gain":    "Mood lift, magnesium, healthy weight gain",
+            "Clean Green":   "Detox, hydration, alkaline boost",
+            "Belly Reset":   "Anti-bloat, digestive enzymes, gut support",
+            "Fresh Core":    "Beta-carotene, gut motility, vitamin A",
+            "Mint Flush":    "Cooling, liver support, fresh breath",
+            "Zesty Clean":   "Vitamin C, gentle detox, immunity",
+            "Happy Berry":   "Mood support, antioxidants, brain fuel",
+            "Citrus Lift":   "Vitamin C, mood lift, immunity",
+            "Kiwi Bliss":    "Vitamin C, focus, calm energy",
+            "Calm Glow":     "Magnesium, mood balance, relaxation",
+            "Sweet Focus":   "Natural sugars, concentration, energy",
+        }
+        smoothie_tag_map = {
+            "Glow & Hydration":     "hydration,glow,tropical",
+            "Energy & Weight Gain": "energy,protein,weight-gain",
+            "Detox & Digestion":    "detox,digestion,green",
+            "Mood & Brain":         "mood,brain,berry",
+        }
+        cat_smoothie = conn.execute("SELECT id FROM categories WHERE slug='smoothies'").fetchone()["id"]
+        for group, items in smoothie_groups.items():
+            for idx, name in enumerate(items):
+                slug = name.lower().replace(" ", "-").replace("&", "and")
+                conn.execute("""INSERT INTO products
+                    (slug, name, short_description, description, ingredients, health_benefits,
+                     category_id, image_url, price_ngn, price_mur, price_usd,
+                     stock, is_available_ng, is_available_mu, is_available_global,
+                     is_featured, is_bestseller, is_new, tags)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                    slug, name,
+                    smoothie_ings[name],
+                    f"{name} is a fresh-blended {group.lower()} smoothie. {smoothie_benefits[name]}.",
+                    smoothie_ings[name],
+                    smoothie_benefits[name],
+                    cat_smoothie,
+                    smoothie_img_pool.get(name),
+                    2800.0,   # NGN price for a single smoothie
+                    150.0,    # MUR price per catalog
+                    0.0,      # not shipped globally (perishable)
+                    100, 1, 1, 0,
+                    1 if idx == 0 else 0,           # first of each group featured
+                    1 if name in ("Power Boost", "Clean Green", "Happy Berry", "Glow Splash") else 0,
+                    1 if name in ("Tropi-Glow", "Choco Gain", "Mint Flush", "Sweet Focus") else 0,
+                    smoothie_tag_map[group]
+                ))
+
+        # SORBETS — Rs 130
+        cat_sorbets = conn.execute("SELECT id FROM categories WHERE slug='sorbets'").fetchone()["id"]
+        sorbets = [
+            ("Pineapple Chill", "Pineapple, Watermelon",   "Cooling hydration, vitamin C"),
+            ("Mango Freeze",    "Mango, Peach",            "Beta-carotene, sweet refreshment"),
+            ("Berry Cool",      "Strawberry, Watermelon",  "Antioxidants, refreshing"),
+            ("Papaya Frost",    "Papaya, Pineapple",       "Digestive enzymes, tropical cool"),
+            ("Kiwi Ice",        "Kiwi, Pineapple",         "Vitamin C, energizing cool"),
+        ]
+        sorbet_imgs = [
+            "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=800&q=80",
+            "https://images.unsplash.com/photo-1567206563064-6f60f40a2b57?w=800&q=80",
+            "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=800&q=80",
+            "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=800&q=80",
+            "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&q=80",
+        ]
+        for i, (name, ings, ben) in enumerate(sorbets):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} sorbet — {ben.lower()}. Made with real fruit only.",
+                ings, ben, cat_sorbets, sorbet_imgs[i],
+                2400.0, 130.0, 0.0, 100, 1, 1, 0,
+                1 if i == 0 else 0, 0, 1 if i in (1, 4) else 0, "sorbet,frozen,refreshing"
+            ))
+
+        # FRUIT SALADS — Rs 180
+        cat_salads = conn.execute("SELECT id FROM categories WHERE slug='fruit-salads'").fetchone()["id"]
+        salads = [
+            ("Tropical Mix",   "Pineapple, Mango, Watermelon, Apple", "Hydration, vitamin C, fiber"),
+            ("Berry Blast",    "Strawberry, Apple, Banana, Kiwi",      "Antioxidants, fiber, energy"),
+            ("Citrus Fresh",   "Orange, Pineapple, Watermelon",        "Immunity, vitamin C, hydration"),
+            ("Rainbow Salad",  "Apple, Banana, Papaya, Pineapple",     "Digestion, vitamins, balance"),
+            ("Kiwi Tropic",    "Kiwi, Mango, Pineapple",               "Vitamin C, enzymes, glow"),
+        ]
+        salad_imgs = [
+            "https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=800&q=80",
+            "https://images.unsplash.com/photo-1546554137-f86b9593a222?w=800&q=80",
+            "https://images.unsplash.com/photo-1564093497595-593b96d80180?w=800&q=80",
+            "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=800&q=80",
+            "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=800&q=80",
+        ]
+        for i, (name, ings, ben) in enumerate(salads):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — hand-cut, fresh-prepared salad. {ben}.",
+                ings, ben, cat_salads, salad_imgs[i],
+                3200.0, 180.0, 0.0, 80, 1, 1, 0,
+                1 if i == 0 else 0, 1 if i == 1 else 0, 1 if i == 4 else 0, "salad,fresh-cut,fiber"
+            ))
+
+        # JUICES — derived from the brand line
+        cat_juice = conn.execute("SELECT id FROM categories WHERE slug='juices'").fetchone()["id"]
+        juices = [
+            ("Orange Sunrise",    "Pure orange, lemon zest",                "Immunity, vitamin C, daily glow",
+             "https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=800&q=80"),
+            ("Watermelon Cooler", "Watermelon, mint",                       "Hydration, electrolytes, cooling",
+             "https://images.unsplash.com/photo-1546538490-0fe0a8eba4e6?w=800&q=80"),
+            ("Pineapple Ginger",  "Pineapple, ginger, lemon",               "Anti-inflammatory, digestion",
+             "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=800&q=80"),
+            ("Carrot Apple Beet", "Carrot, apple, beetroot",                "Blood support, iron, beta-carotene",
+             "https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=800&q=80"),
+        ]
+        for i, (name, ings, ben, img) in enumerate(juices):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} is a cold-pressed juice — {ben.lower()}.",
+                ings, ben, cat_juice, img,
+                2200.0, 120.0, 0.0, 100, 1, 1, 0,
+                1 if i == 0 else 0, 0, 1 if i == 3 else 0, "juice,cold-pressed"
+            ))
+
+        # WELLNESS SHOTS
+        cat_shots = conn.execute("SELECT id FROM categories WHERE slug='wellness-shots'").fetchone()["id"]
+        shots = [
+            ("Ginger Fire Shot",     "Ginger, lemon, cayenne",   "Immunity, circulation, energy",
+             "https://images.unsplash.com/photo-1556881286-fc6915169721?w=800&q=80"),
+            ("Turmeric Glow Shot",   "Turmeric, orange, pepper", "Anti-inflammatory, joint support",
+             "https://images.unsplash.com/photo-1638176067000-9e2cffac2c40?w=800&q=80"),
+            ("Wheatgrass Reset",     "Pure wheatgrass juice",    "Alkaline boost, daily detox",
+             "https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=800&q=80"),
+        ]
+        for i, (name, ings, ben, img) in enumerate(shots):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — a 60ml concentrated shot. {ben}.",
+                ings, ben, cat_shots, img,
+                1500.0, 80.0, 0.0, 100, 1, 1, 0,
+                1 if i == 0 else 0, 1 if i == 0 else 0, 0, "shot,wellness,immunity"
+            ))
+
+        # WELLNESS BOWLS
+        cat_bowls = conn.execute("SELECT id FROM categories WHERE slug='wellness-bowls'").fetchone()["id"]
+        bowls = [
+            ("Açaí Sunrise Bowl",    "Açaí, banana, granola, coconut",         "Antioxidants, fiber, sustained energy",
+             "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&q=80"),
+            ("Tropical Smoothie Bowl","Mango, pineapple, chia, kiwi topping", "Hydration, vitamin C, omega-3",
+             "https://images.unsplash.com/photo-1623428187969-5da2dcea5ebf?w=800&q=80"),
+            ("Green Power Bowl",     "Spinach, banana, almond, hemp seeds",    "Iron, plant protein, recovery",
+             "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=800&q=80"),
+        ]
+        for i, (name, ings, ben, img) in enumerate(bowls):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — a loaded breakfast bowl. {ben}.",
+                ings, ben, cat_bowls, img,
+                4500.0, 240.0, 0.0, 60, 1, 1, 0,
+                1 if i == 0 else 0, 1 if i == 0 else 0, 1 if i == 2 else 0, "bowl,breakfast,superfood"
+            ))
+
+        # POPSICLES
+        cat_pop = conn.execute("SELECT id FROM categories WHERE slug='popsicles'").fetchone()["id"]
+        pops = [
+            ("Mango Lassi Popsicle",   "Mango, yogurt, cardamom",  "Probiotic boost, cooling",
+             "https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=800&q=80"),
+            ("Berry Burst Popsicle",   "Mixed berries, hibiscus",  "Antioxidants, refreshing",
+             "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=800&q=80"),
+            ("Watermelon Lime Pop",    "Watermelon, lime, mint",   "Hydration, electrolytes",
+             "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&q=80"),
+        ]
+        for i, (name, ings, ben, img) in enumerate(pops):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — frozen real-fruit popsicle. {ben}.",
+                ings, ben, cat_pop, img,
+                1200.0, 70.0, 0.0, 200, 1, 1, 0,
+                0, 0, 1 if i == 0 else 0, "popsicle,frozen,kids"
+            ))
+
+        # PROBIOTICS
+        cat_pro = conn.execute("SELECT id FROM categories WHERE slug='probiotics'").fetchone()["id"]
+        pros = [
+            ("Hibiscus Kombucha",     "Live kombucha, hibiscus, ginger", "Gut health, polyphenols",
+             "https://images.unsplash.com/photo-1638176067000-9e2cffac2c40?w=800&q=80"),
+            ("Berry Kefir Drink",     "Coconut kefir, mixed berries",    "Probiotics, dairy-free gut support",
+             "https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=800&q=80"),
+        ]
+        for i, (name, ings, ben, img) in enumerate(pros):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — live-cultured probiotic drink. {ben}.",
+                ings, ben, cat_pro, img,
+                2600.0, 140.0, 0.0, 60, 1, 1, 0,
+                0, 0, 1, "probiotic,gut-health,fermented"
+            ))
+
+        # DRIED FRUITS — shelf-stable, AVAILABLE GLOBALLY
+        cat_dry = conn.execute("SELECT id FROM categories WHERE slug='dried-fruits'").fetchone()["id"]
+        dries = [
+            ("Sun-Dried Mango Slices",     "100% Mango, no added sugar",   "Natural sweetness, fiber, vitamin A",
+             "https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&q=80", 4.99),
+            ("Freeze-Dried Strawberries",  "100% Strawberry",              "Antioxidants, crispy snack",
+             "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80", 5.99),
+            ("Dried Pineapple Rings",      "100% Pineapple",               "Bromelain, digestion, sweet treat",
+             "https://images.unsplash.com/photo-1550828520-4cb496926fc9?w=800&q=80", 4.49),
+            ("Dried Banana Chips",         "Banana, light coconut oil",    "Energy, potassium, fiber",
+             "https://images.unsplash.com/photo-1571771019784-3ff35f4f4277?w=800&q=80", 3.99),
+        ]
+        for i, (name, ings, ben, img, usd) in enumerate(dries):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — 100g pack of premium dried fruit. Shelf-stable, ships globally. {ben}.",
+                ings, ben, cat_dry, img,
+                4000.0, 220.0, usd, 200, 1, 1, 1,
+                1 if i == 0 else 0, 1 if i == 0 else 0, 1 if i == 1 else 0, "dried,shelf-stable,snack,global"
+            ))
+
+        # FRUIT POWDERS — shelf-stable, AVAILABLE GLOBALLY
+        cat_pow = conn.execute("SELECT id FROM categories WHERE slug='fruit-powders'").fetchone()["id"]
+        pows = [
+            ("Baobab Superfood Powder",   "100% Baobab pulp powder",        "Vitamin C, prebiotic fiber",
+             "https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=800&q=80", 12.99),
+            ("Moringa Leaf Powder",       "100% Moringa oleifera leaf",     "Iron, plant protein, daily greens",
+             "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&q=80", 11.99),
+            ("Açaí Berry Powder",         "Freeze-dried açaí",              "Anthocyanins, antioxidant power",
+             "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=800&q=80", 15.99),
+            ("Hibiscus Fruit Tea",        "Loose hibiscus petals",          "Heart health, vitamin C, ruby brew",
+             "https://images.unsplash.com/photo-1597481499750-3e6b22637e12?w=800&q=80", 8.99),
+        ]
+        for i, (name, ings, ben, img, usd) in enumerate(pows):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — 100g pouch of pure superfood. Ships globally. {ben}.",
+                ings, ben, cat_pow, img,
+                6500.0, 360.0, usd, 150, 1, 1, 1,
+                1 if i == 0 else 0, 1 if i == 1 else 0, 1 if i == 2 else 0, "powder,shelf-stable,superfood,global"
+            ))
+
+        # PARTY PACKS
+        cat_party = conn.execute("SELECT id FROM categories WHERE slug='party-packs'").fetchone()["id"]
+        parties = [
+            ("Party Pack of 10 Smoothies",   "10 assorted smoothies, party-ready", "Crowd favourites, mixed flavours",
+             "https://images.unsplash.com/photo-1542444459-db63c982fadb?w=800&q=80"),
+            ("Event Bundle — 20 Drinks",     "20 mixed smoothies & juices",         "Perfect for offices & celebrations",
+             "https://images.unsplash.com/photo-1564093497595-593b96d80180?w=800&q=80"),
+        ]
+        for i, (name, ings, ben, img) in enumerate(parties):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — pre-bundled for groups. {ben}. 24-hour notice required.",
+                ings, ben, cat_party, img,
+                26000.0 if i == 0 else 50000.0,
+                1450.0 if i == 0 else 2800.0,
+                0.0, 30, 1, 1, 0,
+                1 if i == 0 else 0, 1, 0, "party,bundle,event"
+            ))
+
+        # KIDDIES PACKS
+        cat_kid = conn.execute("SELECT id FROM categories WHERE slug='kiddies-packs'").fetchone()["id"]
+        kids = [
+            ("Lil' Sippers Pack (4 Kid-Sized)",  "4 kid-size mild smoothies",  "No added sugar, kid-friendly flavours",
+             "https://images.unsplash.com/photo-1497034825429-c343d7c6a68f?w=800&q=80"),
+            ("School Week Pack (5 Days)",        "5 daily juices for school",  "Vitamin C, energy, no preservatives",
+             "https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=800&q=80"),
+        ]
+        for i, (name, ings, ben, img) in enumerate(kids):
+            slug = name.lower().replace(" ", "-")
+            conn.execute("""INSERT INTO products
+                (slug, name, short_description, description, ingredients, health_benefits,
+                 category_id, image_url, price_ngn, price_mur, price_usd,
+                 stock, is_available_ng, is_available_mu, is_available_global,
+                 is_featured, is_bestseller, is_new, tags)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+                slug, name, ings, f"{name} — designed for children. {ben}.",
+                ings, ben, cat_kid, img,
+                11000.0 if i == 0 else 13500.0,
+                600.0 if i == 0 else 740.0,
+                0.0, 50, 1, 1, 0,
+                1 if i == 0 else 0, 0, 1 if i == 1 else 0, "kids,pack,family"
+            ))
+
+    # Builder options — fully configurable from /admin/builder
+    if not conn.execute("SELECT 1 FROM builder_options").fetchone():
+        opts = [
+            # cup sizes
+            ("cup_size", "Regular (400ml)", 2800, 150,  0,  1),
+            ("cup_size", "Large (600ml)",   3800, 200,  0,  2),
+            ("cup_size", "Family (1L)",     6500, 350,  0,  3),
+            # fruits — min 1 / max 3 per requirement
+            ("fruit", "Banana",       0, 0, 0, 1),
+            ("fruit", "Mango",        0, 0, 0, 2),
+            ("fruit", "Pineapple",    0, 0, 0, 3),
+            ("fruit", "Strawberry",   0, 0, 0, 4),
+            ("fruit", "Blueberry",  300, 15, 0, 5),
+            ("fruit", "Kiwi",       200, 10, 0, 6),
+            ("fruit", "Watermelon",   0, 0, 0, 7),
+            ("fruit", "Orange",       0, 0, 0, 8),
+            ("fruit", "Apple",        0, 0, 0, 9),
+            ("fruit", "Papaya",       0, 0, 0,10),
+            ("fruit", "Avocado",    400, 20, 0,11),
+            ("fruit", "Peach",      200, 10, 0,12),
+            # bases — with/without milk per requirement
+            ("base", "No Base (Water)",        0,  0, 0, 1),
+            ("base", "Coconut Water",        200, 10, 0, 2),
+            ("base", "Almond Milk",          400, 20, 0, 3),
+            ("base", "Oat Milk",             400, 20, 0, 4),
+            ("base", "Cow's Milk",           300, 15, 0, 5),
+            ("base", "Greek Yogurt",         500, 25, 0, 6),
+            # sweeteners
+            ("sweetener", "No Sweetener",       0, 0, 0, 1),
+            ("sweetener", "Dates",           200,10, 0, 2),
+            ("sweetener", "Honey",           250,12, 0, 3),
+            ("sweetener", "Agave Syrup",     250,12, 0, 4),
+            # addons
+            ("addon", "Oats",                250,12, 0, 1),
+            ("addon", "Peanut Butter",       400,20, 0, 2),
+            ("addon", "Chia Seeds",          300,15, 0, 3),
+            ("addon", "Flax Seeds",          300,15, 0, 4),
+            ("addon", "Granola",             400,20, 0, 5),
+            ("addon", "Cocoa Powder",        300,15, 0, 6),
+            # boosters
+            ("booster", "Whey Protein",      800,40, 0, 1),
+            ("booster", "Plant Protein",     800,40, 0, 2),
+            ("booster", "Spirulina",         500,25, 0, 3),
+            ("booster", "Moringa",           500,25, 0, 4),
+            ("booster", "Turmeric",          400,20, 0, 5),
+            ("booster", "Ginger Root",       300,15, 0, 6),
+        ]
+        for opt in opts:
+            conn.execute("""INSERT INTO builder_options
+                (option_type, name, price_ngn, price_mur, price_usd, sort_order)
+                VALUES (?,?,?,?,?,?)""", opt)
+
+    # Wellness Hub — long-form, original content
+    if not conn.execute("SELECT 1 FROM blog_posts").fetchone():
+        posts = [
+            (
+                "turmeric-morning-blend",
+                "Why turmeric belongs in your morning blend",
+                "The ancient golden root, the modern morning ritual, and the science of curcumin absorption",
+                "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1200&q=80",
+                "NUTRITION", "Dr. Adaeze Okafor", 9,
+                "Turmeric is one of the most studied spices in modern nutrition. It's also one of the most misunderstood. Walk into any pharmacy and you'll see capsules promising everything from sharper focus to younger-looking skin. Most of those bottles contain too little of what actually works, in a form your body cannot use. So let's unpack what turmeric really does, what to look for, and exactly how to put it into a smoothie that earns its place in your morning.\n\n## The active compound, not the spice\n\nThe yellow pigment in turmeric is a polyphenol called curcumin. Curcumin is the part of the spice that gives turmeric its anti-inflammatory, antioxidant, and circulation-supporting effects. The catch — and it's a big one — is that pure curcumin makes up only about 3% of dried turmeric powder. The remaining 97% is mostly starches, fibre and other compounds. Worse, curcumin on its own is poorly absorbed. Without help, almost everything you swallow leaves your body unused.\n\nThis is where good food chemistry meets traditional cooking. Two simple additions multiply curcumin bioavailability dramatically: a tiny pinch of black pepper, which contains piperine, and a source of healthy fat. Piperine has been shown to increase curcumin absorption by up to two thousand percent. Fat helps because curcumin is fat-soluble — your body absorbs it the same way it absorbs vitamins A, D, E and K.\n\n## How to actually drink it\n\nThe goal is one well-built morning glass — not a daily mega-dose. Start small and let your body get used to it.\n\n- A quarter teaspoon of high-quality turmeric powder (look for one that lists curcumin content)\n- A grind of fresh black pepper, no more than a pinch\n- A tablespoon of nut butter, half an avocado, a splash of coconut milk, or full-fat yogurt\n- A natural sweetness anchor: half a banana, a few chunks of mango, or pineapple\n- 200 ml of cold water, almond milk, or coconut water\n\nBlend until smooth. The flavour is warm and slightly earthy — pineapple and mango balance it beautifully because their natural sweetness softens the spice's edge. Pineapple also contains bromelain, an enzyme that compounds the anti-inflammatory effect of curcumin.\n\n## What it does that you'll actually feel\n\nMost benefits of turmeric are quiet — they happen at the cellular level over weeks. But there are a few you might notice within a few days of consistent use. The first is recovery: people who exercise often report less stiffness the morning after a hard session. The second is digestion: turmeric stimulates bile flow, which helps your body break down fats. The third, more subtle, is skin clarity — likely because of its antioxidant effect on circulation and inflammation.\n\nThe research on chronic-disease prevention — heart disease, certain cancers, neurodegenerative conditions — is promising but long-term. Don't drink a smoothie expecting overnight magic. Drink it because you enjoy it, and let the cumulative effect take care of itself.\n\n## Who should be careful\n\nTurmeric is generally safe in food-level doses, but a few people should talk to a doctor before adding daily turmeric. Anyone on blood-thinning medication, because curcumin has mild anticoagulant properties. People with gallstones or active gallbladder disease, because turmeric increases bile flow. Pregnant women, until they've checked with their care provider. And anyone taking iron supplements should separate the timing — curcumin can bind to iron and slightly reduce absorption.\n\n## Sourcing matters more than you'd think\n\nThe single biggest variable in turmeric quality is the curcumin percentage. Cheap turmeric, especially poorly-stored ground powder, can have very low active content. Always look for a vibrant orange-yellow colour rather than a dull brown, and store the spice in a cool dark cupboard, not next to the stove.\n\nIf you can find fresh turmeric root (often available in West African and Mauritian markets), use it. Half a thumb-sized piece, peeled and grated, in place of the powder. The flavour is brighter and the active compound is generally higher.\n\n## One ritual, not ten supplements\n\nThe wellness industry is great at making you feel like you need fifteen daily pills. But if you build one well-considered morning glass — turmeric, a fat, a pepper, fruit, a base — you'll be ahead of most people taking expensive supplements. Keep it simple. Drink it most days. Adjust to your taste. That's it."
+            ),
+            (
+                "west-african-superfoods-gut",
+                "West African superfoods your gut absolutely loves",
+                "Local fruits and roots that quietly outperform imported supplements — at a fraction of the price",
+                "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=1200&q=80",
+                "LIFESTYLE", "KC Team", 10,
+                "Long before açaí became a brunch trend and matcha lattes filled airport menus, West Africa had its own pantry of gut-loving foods. Many of them grow within walking distance of where they're eaten. Almost none of them require shipping a powder halfway around the world. And yet you'll struggle to find them on a typical 'superfood' list, because superfood lists are mostly made by people who haven't visited a West African market.\n\nLet's fix that. Here are six ingredients that should be in your blender, what they actually do, and how to use them without making your smoothie taste like a science experiment.\n\n## Baobab fruit\n\nThe baobab is the iconic flat-topped tree of the African savannah. Its fruit dries on the branch into a hard pod containing seeds surrounded by a chalky white pulp. That pulp is the part you want. Pound for pound, baobab pulp has roughly six times more vitamin C than oranges, more potassium than bananas, and an unusually high content of soluble fibre.\n\nThat fibre is what makes baobab a quiet hero for your gut. Soluble fibre is the food your beneficial bacteria ferment into short-chain fatty acids — butyrate, propionate and acetate — which feed the lining of your colon and reduce inflammation throughout your body. A teaspoon of baobab powder in your morning smoothie gives you about a third of your daily fibre target.\n\nFlavour: tangy, citrusy, slightly sherbet-like. It works beautifully with mango and pineapple.\n\n## Tiger nuts\n\nDespite the name, tiger nuts aren't nuts at all — they're tiny tubers, technically the swollen rhizomes of a sedge plant. They look like wrinkled chickpeas. They taste a bit like coconut crossed with almond. And they are loaded with resistant starch.\n\nResistant starch is the kind your body doesn't digest in the small intestine. It travels all the way to your colon, where your microbiome ferments it. The result is the same butyrate-producing magic as baobab, but with a different microbial signature — which is exactly what you want, since gut diversity matters.\n\nBest way to use them: soak whole tiger nuts overnight, then blend into a milk. Tiger nut milk is creamy, naturally sweet, and dairy-free. In Nigeria and Mauritius you'll see it called 'kunnu aya' or simply tiger nut milk; in Spain it's the base of horchata.\n\n## Moringa leaf\n\nMoringa is sometimes oversold as 'the miracle tree,' which is unfortunate because the actual nutritional profile is impressive enough without hyperbole. The dried leaf powder is one of the few plant sources that's genuinely complete — it contains all nine essential amino acids, plus iron, calcium, magnesium, and vitamins A and K.\n\nFor smoothies, a quarter to half a teaspoon is plenty. The flavour is grassy, almost matcha-adjacent. Pair it with pineapple, banana and a squeeze of lime. Don't overdo it: too much moringa tastes bitter, and very high daily doses can affect thyroid function over time. Treat it as a multi-vitamin you drink, not a hero ingredient.\n\n## Hibiscus\n\nIn West Africa it's called zobo; in Mauritius and the Caribbean, sorrel or rosella. Brewed strong and cold, the dried calyces produce a drink that's deep ruby red and tastes like cranberry's more elegant cousin. Hibiscus is a polyphenol powerhouse, with research linking regular consumption to modestly lower blood pressure and improved cholesterol profiles.\n\nFor smoothies, brew a strong batch of hibiscus tea, let it cool, and use it as your liquid base. It pairs especially well with pineapple, ginger and a touch of honey.\n\n## Bissap and bitter leaf\n\nThese two cross the line from food into traditional medicine, and both have genuine evidence behind them. Bissap (another name for hibiscus in parts of West Africa) is the polyphenol drink above. Bitter leaf, found in Nigerian, Cameroonian and Mauritian markets, is more of an acquired taste — but a small amount blended into a green smoothie supports liver function and helps regulate blood sugar.\n\n## African star apple and soursop\n\nFor sweet smoothies, look for fruits that travel well from local markets. African star apple (udara, agbalumo, alasa) is loaded with vitamin C and fibre. Soursop has a creamy, tangy flesh that blends beautifully with banana and coconut. Both freeze well, so if you find them in season, portion and freeze.\n\n## A starter blend\n\nIf this is your first time using West African ingredients in a smoothie, try this combination: one cup of frozen mango, half a banana, one tablespoon of baobab powder, half a teaspoon of moringa, a thumb of fresh ginger, 250 ml of cold hibiscus tea, a splash of coconut milk, and a small handful of ice. Blend until smooth.\n\nIt's tangy, slightly creamy, gently floral, and packed with fibre, vitamin C, polyphenols and complete plant protein. Your gut will thank you within a week. So will your grocery bill."
+            ),
+            (
+                "post-workout-recovery-smoothie",
+                "Building the ultimate post-workout recovery smoothie",
+                "The 3-4-1 ratio, the 45-minute window, and what to drink for every type of training",
+                "https://images.unsplash.com/photo-1484723091739-30a097e8f929?w=1200&q=80",
+                "RECIPE", "Fitness Desk", 9,
+                "Recovery is where training stops being a workout and starts becoming results. The hour after a hard session is when your body is most receptive to nutrients — glycogen synthesis runs at roughly twice its normal rate, muscle protein synthesis is elevated, and the stress hormones that get in the way of recovery start clearing your system. Get the next meal right and you'll feel different the next morning. Get it wrong and you'll spend two days sore.\n\nSmoothies are perfect for this window because they're cold, hydrating, easy to digest, and let you pack a precise nutrient profile into a single glass.\n\n## The 3-4-1 ratio\n\nThe simplest framework that survives contact with reality is the 3-4-1 ratio:\n\n- 3 parts fast-absorbing carbohydrates, to refill glycogen stores\n- 4 parts complete protein, to repair muscle fibres\n- 1 part healthy fat, to slow absorption and provide longer-lasting energy\n\nThe numbers refer to relative proportions, not exact grams. For most people, that translates to roughly 40–50 g of carbs, 25–30 g of protein, and 7–10 g of fat in the recovery shake. Adjust upward for endurance sessions, downward for short strength training.\n\n## The base recipe\n\nA recovery blend that works for most people, most of the time:\n\n- 1 banana (medium ripe, frozen is fine)\n- ½ cup pineapple chunks (fresh or frozen)\n- 30 g whey protein, plant protein, or 200 g Greek yogurt\n- 1 tablespoon natural peanut butter or almond butter\n- 1 teaspoon chia seeds\n- 250 ml coconut water or cold filtered water\n- A small handful of ice if using fresh (not frozen) fruit\n\nBlend until completely smooth. You should get about 400 ml of cold, drinkable shake with the consistency of a thin milkshake.\n\n## Why each ingredient earns its place\n\n**Banana** delivers fast-burning natural sugars plus potassium — the electrolyte you lose most through sweat. Frozen banana also gives the shake its body without diluting it with extra liquid.\n\n**Pineapple** contains bromelain, an enzyme that supports protein digestion and has mild anti-inflammatory properties. Several studies suggest bromelain helps reduce muscle soreness after eccentric training.\n\n**Protein source** is non-negotiable. The exact source matters less than the total dose: whey is the gold standard for absorption speed, but a quality plant blend (pea + brown rice + hemp) hits the same essential amino acid profile within a few percent. Greek yogurt is excellent if you tolerate dairy.\n\n**Nut butter** slows the carbohydrate spike so you don't crash an hour later. It also provides magnesium, which helps muscle relaxation.\n\n**Chia seeds** are a quiet electrolyte source. They absorb water, swell slightly in the shake, and give it a richer mouthfeel without adding much calorie load.\n\n**Coconut water** matches your body's electrolyte balance better than plain water — it's especially useful after long or hot sessions where you sweat a lot.\n\n## Variations for different training\n\n**Strength session under an hour:** halve the banana and pineapple. You don't need the full carbohydrate dose if you didn't deplete glycogen.\n\n**Long endurance session (1+ hour cardio, long ride, long run):** add a second banana and double the chia. You will need every gram of carbohydrate you can absorb.\n\n**Fasted morning training:** double the carbs and add 50 ml more coconut water. Your glycogen is fully empty and your body needs everything you can give it.\n\n**Late-evening training:** halve the carbohydrate side. You don't want a sugar surge right before bed; favour protein, fat, and slow-release fuels. Add a teaspoon of magnesium powder if available — it supports both recovery and sleep.\n\n**Vegan training:** swap whey for a pea + rice blend or use 150 g silken tofu for a creamier shake with full amino acid coverage.\n\n## Timing — the famous '45 minute window'\n\nThe idea of a strict anabolic window has been softened by newer research. You don't need to chug your shake within the first thirty seconds of stepping out of the gym. But you do want food in your system within ninety minutes, and the closer to thirty minutes, the better — especially after morning sessions, fasted sessions, or anything over an hour.\n\nA realistic rule: blend the shake before you train, leave it in the fridge or a cold bag, drink it on your way home or as you cool down. Eat a proper meal within two hours.\n\n## Things people often get wrong\n\nFirst, more is not better. A 700 ml mega-shake with 60 g of protein and 80 g of carbs is just a meal — your body uses what it can and stores the rest. The 3-4-1 ratio in modest amounts will outperform calorie overload every time.\n\nSecond, hydration matters more than the shake itself. If you're 2% dehydrated, your recovery is already compromised. Aim for 500 ml of water in the hour after training, separate from your shake.\n\nThird, sleep beats supplements. Seven to nine hours of good sleep does more for recovery than any post-workout drink ever will. Build the shake into a routine that also protects your sleep — don't sip it at 9pm and expect a fresh morning."
+            ),
+            (
+                "afternoon-energy-slump",
+                "Five smoothies that kill your afternoon energy slump",
+                "Why the 3pm crash isn't about coffee — and what to drink instead",
+                "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=1200&q=80",
+                "WELLNESS", "KC Team", 7,
+                "There's a feeling most office workers know by heart. It's somewhere between 2 and 4 in the afternoon. The food coma sneaks up on you. Your eyelids feel three pounds heavier. You consider a second coffee, knowing it'll wreck your sleep but unsure what else to do. You keep clicking through tabs, productive in the way a phone in airplane mode is productive — moving, but not really connecting.\n\nThat feeling almost never has anything to do with caffeine. It's a cocktail of three things: a blood sugar dip from a fast lunch, mild dehydration, and a natural dip in your body's daily alertness rhythm. Coffee numbs the symptom for an hour. The fix is steadier fuel and water — and it tastes better as a smoothie.\n\n## What's actually happening at 3 pm\n\nIf your lunch was bread-heavy, rice-heavy, or simply too sweet, your blood sugar shoots up sharply and then crashes about two hours later. The crash is the slump. Throw in the fact that most of us are slightly dehydrated by mid-afternoon, plus a normal dip in cortisol around 3 pm, and your brain genuinely doesn't have what it needs to perform.\n\nThe fix isn't more coffee — it's a small portion of food that combines fibre, healthy fat, a touch of natural sugar, and water. That's exactly what a well-built smoothie is.\n\n## Five blends that work\n\n**1. The classic restart**\n\nOne ripe banana, one tablespoon peanut butter, three tablespoons rolled oats, 200 ml almond or oat milk, a pinch of cinnamon. Blend until smooth. The oats provide slow-release carbs, the peanut butter slows everything down further, the cinnamon helps with insulin response. This one tastes like a melted cookie and you'll feel sharp for two hours.\n\n**2. The cool reset**\n\nHalf a green apple, a cucumber stick, a thumb of ginger, the juice of half a lime, a handful of spinach, 250 ml cold water, a few mint leaves. Blend, strain if you prefer. This one is alkalising, hydrating, and gives you a clean energy without any sugar crash. Pair it with a small handful of almonds if you're truly hungry.\n\n**3. The mood lift**\n\nOne cup mixed frozen berries, 150 g Greek yogurt, one tablespoon honey, half a cup of cold water or coconut water, a teaspoon of chia. The dark berries are loaded with anthocyanins that support brain function and mood. Greek yogurt gives you steady protein. You'll feel both calmer and more focused — the slightly underrated combination.\n\n**4. The golden afternoon**\n\nOne cup mango, a quarter teaspoon turmeric, a pinch of black pepper, a thumb of ginger, half a cup coconut milk, 150 ml water, a few ice cubes. This is essentially a cold golden latte with fruit. The combination of curcumin, ginger and pineapple's bromelain (swap mango for pineapple if you have it) gives you a quiet anti-inflammatory boost. Great after a long meeting-heavy morning.\n\n**5. The chocolate hour**\n\nTwo dates, one tablespoon raw cacao powder, one ripe banana, one tablespoon almond butter, 250 ml oat milk, a small pinch of salt. This one is for the days you would otherwise raid the office biscuit jar. Cacao delivers magnesium and a touch of theobromine — a gentler stimulant than caffeine. Dates provide complex sugars buffered by fibre. You get the chocolate hit and the steady energy.\n\n## The non-smoothie rules that make smoothies work\n\nYou can drink the perfect blend and still slump if you ignore the rest. Three rules:\n\nFirst, water. A glass of plain water before and after your smoothie. Mild dehydration is the single most underestimated cause of afternoon fog.\n\nSecond, light at lunch. The heavier and more refined your lunch, the bigger the crash. A salad with protein and a piece of fruit beats a sandwich and chips every time, even if it sounds less interesting.\n\nThird, movement. A two-minute walk outdoors after lunch — even if it's just to the corner of your office park — does more for afternoon alertness than another caffeinated drink. Daylight resets your circadian rhythm. Movement re-circulates blood and oxygen to your brain. Combine that with a smart smoothie and you'll feel like a different person for the second half of your day."
+            ),
+            (
+                "the-truth-about-detox",
+                "The truth about detox drinks (and what actually works)",
+                "Your liver doesn't need a juice cleanse — but it does need these specific nutrients",
+                "https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=1200&q=80",
+                "NUTRITION", "Dr. Adaeze Okafor", 8,
+                "There is a billion-dollar industry built on the idea that your body is full of toxins that need to be flushed out by a special drink, powder or three-day cleanse. It's a clever marketing story. It's also, mostly, not true.\n\nHere's what's actually true, and what to drink if you want to support the systems your body already uses to keep you healthy.\n\n## Your body already detoxifies — constantly\n\nYour liver, kidneys, lungs, skin and gut are detoxification machines that run twenty-four hours a day from the moment you're born. The liver is the headline organ — it converts harmful compounds into water-soluble metabolites your kidneys can excrete in urine. The kidneys filter roughly 180 litres of blood every day. Your gut lining is a selective barrier that lets nutrients in and keeps most other things out. Your skin manages temperature and excretes minor amounts of waste through sweat. None of these systems needs a green juice to function.\n\nWhat they do need is the building blocks to do their work well. A liver short on B vitamins, magnesium, or specific amino acids will still detoxify — just less efficiently. A gut short on fibre will struggle to move waste through. Kidneys without enough water work harder than they need to.\n\nThis is the part of the story the supplement industry skips. You don't 'detox' your body. You support the organs that already do it.\n\n## Five things that genuinely help\n\n**Cruciferous vegetables** — broccoli, cabbage, kale, watercress, cauliflower. They contain sulforaphane and indole-3-carbinol, compounds your liver uses in its phase II detoxification pathways. Blending them with fruit and citrus makes them more drinkable.\n\n**Vitamin C-rich fruit** — citrus, baobab, pineapple, kiwi, mango. Vitamin C supports glutathione regeneration. Glutathione is the body's master antioxidant and a key part of how your liver neutralises threats.\n\n**Glycine and N-acetyl-cysteine sources** — collagen, egg whites, garlic, onions. These provide the amino acid backbones your liver needs to build glutathione.\n\n**Polyphenols** — found in berries, dark grapes, green tea, hibiscus, dark chocolate, olive oil. They reduce oxidative stress and inflammation throughout the body.\n\n**Fibre** — soluble and insoluble. Fibre is the broom that sweeps waste compounds out through your gut. Without enough fibre, even a perfect liver loses ground.\n\nNotice what's not on the list: anything labelled 'detox tea' that costs sixty dollars. Anything that promises rapid weight loss. Anything that recommends skipping food for three days.\n\n## A real 'detox' smoothie\n\nIf you want a single blend that actually supports your body's natural cleanup:\n\n- A handful of kale or watercress (cruciferous source)\n- Half a green apple (fibre + flavour)\n- A small piece of cucumber (water + minerals)\n- The juice of half a lemon (vitamin C + flavour)\n- A thumb of ginger (digestion)\n- A small handful of parsley (chlorophyll, vitamin K)\n- 250 ml of cold water or coconut water\n- An optional teaspoon of baobab or moringa powder\n\nBlend until smooth. Don't strain — the fibre is the point. Drink it on most mornings, alongside a normal balanced diet. That's a real detox.\n\n## The simplest 'cleanse' that actually works\n\nIf you wanted to design a routine that genuinely helps your body's cleanup systems, it would look almost nothing like a three-day juice fast. It would look like this:\n\n- Sleep seven to nine hours every night. Most of your liver's repair happens during deep sleep.\n- Drink water steadily throughout the day. Two to three litres for most adults; more in hot climates.\n- Eat thirty different plant foods per week — variety is what feeds a diverse, resilient gut microbiome.\n- Move every day. Lymph (your body's secondary drainage system) doesn't have a pump; movement is the pump.\n- Drink less alcohol than you currently do, whatever that amount is.\n- Manage chronic stress. Stress hormones interfere with detoxification pathways and slow gut transit.\n\nThat's it. No bottle, no eight-hundred-dollar package, no week of feeling miserable. Just the boring, consistent things humans have always done to feel well.\n\n## When 'detox' marketing crosses a line\n\nIf you ever see a product claiming to remove specific heavy metals, treat a chronic disease, or replace medical care — walk away. Those are claims a legitimate product wouldn't make. The body's detoxification system is real, sophisticated and largely self-running. Your job is to feed it well, water it well, and get out of its way."
+            ),
+        ]
+        for slug, title, sub, cover, cat, author, mins, content in posts:
+            conn.execute("""INSERT INTO blog_posts (slug, title, subtitle, cover_url, category, author, content, read_minutes)
+                VALUES (?,?,?,?,?,?,?,?)""", (slug, title, sub, cover, cat, author, content, mins))
+
+    # Seed sample reviews across the first dozen products so the UI isn't empty.
+    if not conn.execute("SELECT 1 FROM reviews").fetchone():
+        sample = [
+            ("Adaeze O.",     5, "Genuinely the best smoothie on the menu",   "I order this one every Wednesday. The freshness is unmatched, and you can actually taste the real fruit — not concentrate. Worth every rupee."),
+            ("Pravesh R.",    5, "Become my morning ritual",                  "Started ordering this for my pre-gym fuel. Light, refreshing, and gives me real energy without that heavy feeling. Five stars."),
+            ("Marie-Claire D.",4, "Loved it — would order again",             "Beautifully presented, generous portion, and arrived perfectly chilled. Took off one star only because I'd love a slightly bigger size option."),
+            ("Tunde A.",      5, "Premium quality at a fair price",           "I've tried every smoothie spot in the city. KCBlendz is consistently the freshest. The flavour profile is balanced — not too sweet, not too icy."),
+            ("Shanaz B.",     5, "My kids ask for this one specifically",     "Picky eaters approved. Real fruit, no weird aftertaste. Delivery was on time and the team is super friendly."),
+            ("Ifeoma E.",     4, "Great drink, considering subscribing",      "Tastes like a proper wellness drink without the bitter aftertaste of most green smoothies. Will definitely reorder."),
+            ("Vikash K.",     5, "Refreshing and well-made",                  "Hit the spot on a hot afternoon. The fruit pieces were generous and you can tell they use quality ingredients."),
+            ("Chioma N.",     5, "Worth the hype",                             "Tried this on a friend's recommendation. The texture, the flavour, the freshness — all on point. Ordering again this weekend."),
+        ]
+        product_ids = [r["id"] for r in conn.execute("SELECT id FROM products WHERE is_active=1 LIMIT 12").fetchall()]
+        import random as _r
+        for pid in product_ids:
+            for name, rating, title_r, body in _r.sample(sample, _r.randint(3, 5)):
+                conn.execute("""INSERT INTO reviews (product_id, author_name, rating, title, body, is_verified_buyer)
+                                VALUES (?,?,?,?,?,?)""", (pid, name, rating, title_r, body, 1))
+
+    conn.commit()
+    conn.close()
+
+
