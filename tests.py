@@ -383,5 +383,27 @@ class CartSubtotalTests(_BaseDB):
         self.assertIn(b"350", r.data)
 
 
+
+
+class CheckoutFlowTests(_BaseDB):
+    def test_empty_cart_redirects_to_cart(self):
+        r = self.client.get("/checkout", follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/cart", r.headers["Location"])
+
+    def test_checkout_renders_with_items(self):
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute("INSERT INTO products (slug,name,price_mur,is_active) VALUES (?,?,?,1)",
+                       ("co", "CO Smoothie", 250.0))
+            db.commit()
+            pid = db.execute("SELECT id FROM products WHERE slug='co'").fetchone()["id"]
+        tok = _csrf(self.client, "/")
+        self.client.post("/cart/add", data={"_csrf": tok, "product_id": str(pid), "qty": "1"})
+        r = self.client.get("/checkout")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b"Checkout", r.data)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
