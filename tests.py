@@ -396,3 +396,15 @@ class CustomBlendImageTests(unittest.TestCase):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Region & currency helpers
+# ─────────────────────────────────────────────────────────────────────────────
+class RegionHelperTests(unittest.TestCase):
+    def test_price_field_mapping(self):
+        self.assertEqual(kc.price_field_for("NG"), "price_ngn")
+        self.assertEqual(kc.price_field_for("MU"), "price_mur")
+        self.assertEqual(kc.price_field_for("GL"), "price_usd")
+
+    def test_currency_for_region(self):
+        self.assertEqual(kc.currency_for_region("NG"), "NGN")
+        self.assertEqual(kc.currency_for_region("MU"), "MUR")
+        self.assertEqual(kc.currency_for_region("GL"), "USD")
+
