@@ -1,0 +1,15 @@
+<a href="{{ url_for('product_detail', slug=p.slug) if 'product_detail' else '#' }}" class="block bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition">
+  <div class="aspect-square bg-gradient-to-br from-[var(--kc-yellow)] to-[var(--kc-orange)] flex items-center justify-center text-5xl">🥤</div>
+  <div class="p-4">
+    <h3 class="font-semibold text-lg">{{ p.name }}</h3>
+    <p class="text-sm opacity-70 mt-1 line-clamp-2">{{ p.short_description or '' }}</p>
+    <div class="mt-3 flex items-center justify-between">
+      <span class="font-bold text-[var(--kc-green)]">{{ p.price_mur or p.price_ngn or p.price_usd }}</span>
+      {% if p.is_bestseller %}
+        <span class="text-xs px-2 py-0.5 bg-[var(--kc-orange)] text-white rounded-full">Bestseller</span>
+      {% elif p.is_new %}
+        <span class="text-xs px-2 py-0.5 bg-[var(--kc-green)] text-white rounded-full">New</span>
+      {% endif %}
+    </div>
+  </div>
+</a>
