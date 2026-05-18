@@ -160,6 +160,18 @@ CREATE TABLE IF NOT EXISTS custom_smoothies (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+
+CREATE TABLE IF NOT EXISTS blogs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    excerpt TEXT,
+    body TEXT,
+    cover_url TEXT,
+    is_published INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS reviews (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -953,6 +965,36 @@ def admin_builder():
         "SELECT * FROM builder_options ORDER BY option_type, sort_order"
     ).fetchall()
     return render_template("admin/builder_config.html", options=options)
+
+
+@app.route("/wellness")
+def wellness():
+    db = get_db()
+    posts = db.execute(
+        "SELECT * FROM blogs WHERE is_published = 1 ORDER BY created_at DESC"
+    ).fetchall()
+    return render_template("public/wellness.html", posts=posts)
+
+
+@app.route("/wellness/<slug>")
+def wellness_post(slug):
+    db = get_db()
+    post = db.execute(
+        "SELECT * FROM blogs WHERE slug = ? AND is_published = 1", (slug,)
+    ).fetchone()
+    if not post:
+        abort(404)
+    return render_template("public/wellness_post.html", post=post)
+
+
+@app.template_filter("mdinline")
+def _md_inline(text):
+    import re as _re
+    from markupsafe import Markup, escape as _escape
+    t = str(_escape(text or ""))
+    t = _re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", t)
+    t = _re.sub(r"\*(.+?)\*", r"<em>\1</em>", t)
+    return Markup(t)
 
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
