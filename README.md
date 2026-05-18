@@ -116,3 +116,35 @@ Readiness probe — runs `SELECT 1`; returns 503 if the DB is unreachable.
 ### `GET /sitemap.xml`, `GET /robots.txt`
 
 SEO endpoints.
+
+## Contributing
+
+We use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <imperative summary>
+```
+
+Allowed types: `feat`, `fix`, `refactor`, `style`, `chore`, `test`, `docs`.
+
+### Workflow
+
+1. Fork → create a feature branch named `<type>/<short-summary>`.
+2. `make install && make test` locally before pushing.
+3. Open a PR against `main`. The CI pipeline runs lint + tests.
+4. At least one approval is required to merge. Security-tagged changes also
+   need a Security review (see `SECURITY.md`).
+
+## The team
+
+| Member                       | Role                              |
+| ---------------------------- | --------------------------------- |
+| **Winebald Banituze**        | Project Manager & Backend Engineer|
+| **Kevin Ikuzwe**             | Frontend Engineer                 |
+| **Lisette Mukiza**           | DevOps Engineer                   |
+| **Sylvie Umutoni Rutaganira**| Security Engineer                 |
+| **Olais Julius Laizer**      | QA Engineer                       |
+
+## License
+
+© KCBlendz. All rights reserved.
