@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Terms — KCBlendz{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+  <h1 class="brand text-4xl mb-4">Terms</h1>
+  <div class="prose max-w-none opacity-90">
+    {% block terms_body %}
+      <p>Welcome to the Terms page. We're committed to nourishing lives and inspiring wellness.</p>
+    {% endblock %}
+  </div>
+</section>
+{% endblock %}

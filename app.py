@@ -996,6 +996,46 @@ def _md_inline(text):
     t = _re.sub(r"\*(.+?)\*", r"<em>\1</em>", t)
     return Markup(t)
 
+
+@app.route("/about")
+def about(): return render_template("public/about.html")
+
+
+@app.route("/contact", methods=["GET", "POST"])
+def contact():
+    if request.method == "POST":
+        flash("Thanks — we've received your message.", "success")
+        return redirect(url_for("contact"))
+    return render_template("public/contact.html")
+
+
+@app.route("/faq")
+def faq(): return render_template("public/faq.html")
+
+
+@app.route("/privacy")
+def privacy(): return render_template("public/privacy.html")
+
+
+@app.route("/terms")
+def terms(): return render_template("public/terms.html")
+
+
+@app.route("/refund-policy")
+def refund_policy(): return render_template("public/refund.html")
+
+
+@app.route("/shipping-policy")
+def shipping_policy(): return render_template("public/shipping.html")
+
+
+@app.errorhandler(404)
+def _err_404(e): return render_template("public/error.html"), 404
+
+
+@app.errorhandler(500)
+def _err_500(e): return render_template("public/error.html"), 500
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
