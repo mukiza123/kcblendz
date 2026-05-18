@@ -1,0 +1,87 @@
+{% extends "admin/_layout.html" %}
+{% set active = 'profile' %}
+{% block title %}Admin — Profile{% endblock %}
+{% block page_title %}My profile & settings{% endblock %}
+
+{% block admin_body %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  <!-- Account card -->
+  <div class="bg-white rounded-2xl border-2 border-black p-5">
+    <div class="flex items-center gap-4 mb-4">
+      <div class="w-16 h-16 rounded-full bg-[var(--kc-green)] text-white flex items-center justify-center text-2xl font-extrabold">
+        {{ (u['full_name'] or 'A')[:1]|upper }}
+      </div>
+      <div class="min-w-0">
+        <p class="font-extrabold text-lg truncate">{{ u['full_name'] }}</p>
+        <p class="text-sm text-gray-500 truncate">{{ u['email'] }}</p>
+        <span class="badge-square bg-[var(--kc-green)] text-white mt-1 inline-block">Administrator</span>
+      </div>
+    </div>
+    <dl class="text-sm space-y-2 border-t-2 border-dashed border-gray-200 pt-3">
+      <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd class="font-bold">{{ u['phone'] or '—' }}</dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Member since</dt><dd class="font-bold">{{ (u['created_at'] or '')[:10] }}</dd></div>
+    </dl>
+    <div class="grid grid-cols-3 gap-2 text-center mt-4">
+      <div class="bg-[var(--bg)] rounded-lg p-2"><p class="text-xl font-extrabold">{{ stats.orders }}</p><p class="text-[10px] uppercase tracking-widest text-gray-500">Orders</p></div>
+      <div class="bg-[var(--bg)] rounded-lg p-2"><p class="text-xl font-extrabold">{{ stats.products }}</p><p class="text-[10px] uppercase tracking-widest text-gray-500">Products</p></div>
+      <div class="bg-[var(--bg)] rounded-lg p-2"><p class="text-xl font-extrabold">{{ stats.users }}</p><p class="text-[10px] uppercase tracking-widest text-gray-500">Users</p></div>
+    </div>
+  </div>
+
+  <!-- Edit details -->
+  <div class="bg-white rounded-2xl border-2 border-black p-5">
+    <h2 class="text-base font-extrabold uppercase tracking-wider mb-4">Account details</h2>
+    <form method="post" class="space-y-4">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="details">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Full name</label>
+        <input name="full_name" value="{{ u['full_name'] }}" required
+               class="w-full border-2 border-black rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Email</label>
+        <input name="email" type="email" value="{{ u['email'] }}" required
+               class="w-full border-2 border-black rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Phone</label>
+        <input name="phone" value="{{ u['phone'] or '' }}"
+               class="w-full border-2 border-black rounded-lg px-3 py-2 text-sm">
+      </div>
+      <button class="btn-green rounded-full px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider border-2 border-black w-full">
+        Save changes
+      </button>
+    </form>
+  </div>
+
+  <!-- Change password -->
+  <div class="bg-white rounded-2xl border-2 border-black p-5">
+    <h2 class="text-base font-extrabold uppercase tracking-wider mb-4">Change password</h2>
+    <form method="post" class="space-y-4">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="password">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Current password</label>
+        <input name="current_password" type="password" required
+               class="w-full border-2 border-black rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">New password</label>
+        <input name="new_password" type="password" required minlength="8"
+               class="w-full border-2 border-black rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Confirm new password</label>
+        <input name="confirm_password" type="password" required minlength="8"
+               class="w-full border-2 border-black rounded-lg px-3 py-2 text-sm">
+      </div>
+      <button class="btn-green rounded-full px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider border-2 border-black w-full">
+        Update password
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
