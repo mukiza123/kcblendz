@@ -150,5 +150,38 @@ class CardFormValidationTests(unittest.TestCase):
         self.assertTrue(any("CVC" in e for e in errors))
 
 
+
+
+class RegistrationTests(_BaseDB):
+    def test_register_creates_user(self):
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "email": "new@example.com", "full_name": "New User",
+            "phone": "+23012345678", "password": "Passw0rd!"
+        }, follow_redirects=False)
+        self.assertIn(r.status_code, (200, 302))
+        with kc.app.app_context():
+            row = kc.get_db().execute(
+                "SELECT email FROM users WHERE email = ?", ("new@example.com",)
+            ).fetchone()
+            self.assertIsNotNone(row)
+
+    def test_register_rejects_bad_email(self):
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "email": "not-an-email", "full_name": "X",
+            "phone": "", "password": "Passw0rd!"
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 200)
+
+    def test_register_rejects_weak_password(self):
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "email": "x@y.com", "full_name": "X",
+            "phone": "", "password": "123"
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 200)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
