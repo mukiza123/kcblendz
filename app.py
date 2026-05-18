@@ -1194,3 +1194,126 @@ def product_detail(slug):
                            reviews=reviews, rating_stats=rating_stats)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SMOOTHIE BUILDER
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/builder")
+@region_required
+def builder():
+    db = get_db()
+    region = current_region()
+    price = price_field_for(region)
+    opts = db.execute(f"""SELECT id, option_type, name, {price} AS price
+                          FROM builder_options WHERE is_active=1 ORDER BY option_type, sort_order""").fetchall()
+    grouped = {"cup_size": [], "fruit": [], "base": [], "sweetener": [], "addon": [], "booster": []}
+    for o in opts:
+        if o["option_type"] in grouped:
+            grouped[o["option_type"]].append(dict(o))
+    return render_template("public/builder.html", opts=grouped, price_field=price)
+
+
+@app.route("/api/builder/price", methods=["POST"])
+@region_required
+def api_builder_price():
+    region = current_region()
+    price = price_field_for(region)
+    data = request.get_json(silent=True) or {}
+    ids = []
+    for k in ("cup_size", "fruits", "base", "sweeteners", "addons", "boosters"):
+        v = data.get(k)
+        if isinstance(v, list):
+            ids.extend(v)
+        elif v:
+            ids.append(v)
+    if not ids:
+        return jsonify({"price": 0, "currency": currency_for_region(region)})
+    placeholders = ",".join("?" for _ in ids)
+    rows = get_db().execute(
+        f"SELECT id, name, option_type, {price} AS price FROM builder_options WHERE id IN ({placeholders})", ids
+    ).fetchall()
+    qty = max(1, int(data.get("quantity", 1)))
+    unit_price = sum(r["price"] for r in rows)
+    return jsonify({
+        "unit_price": unit_price,
+        "quantity": qty,
+        "price": unit_price * qty,
+        "currency": currency_for_region(region),
+        "items": [dict(r) for r in rows],
+    })
+
+
+@app.route("/builder/add-to-cart", methods=["POST"])
+@region_required
+def builder_add_to_cart():
+    region = current_region()
+    price_col = price_field_for(region)
+    cur = currency_for_region(region)
+    try:
+        config = json.loads(request.form["config_json"])
+    except Exception:
+        flash("Invalid smoothie configuration.", "error")
+        return redirect(url_for("builder"))
+
+    ids = []
+    for k in ("cup_size", "fruits", "base", "sweeteners", "addons", "boosters"):
+        v = config.get(k)
+        if isinstance(v, list):
+            ids.extend(v)
+        elif v:
+            ids.append(v)
+    if not ids:
+        flash("Pick at least a cup size and one fruit.", "error")
+        return redirect(url_for("builder"))
+
+    placeholders = ",".join("?" for _ in ids)
+    rows = get_db().execute(
+        f"SELECT id, name, option_type, {price_col} AS price FROM builder_options WHERE id IN ({placeholders})", ids
+    ).fetchall()
+    grouped = {}
+    for r in rows:
+        grouped.setdefault(r["option_type"], []).append(r["name"])
+    # validation: at least 1 fruit, max 3 fruits, exactly 1 cup, exactly 1 base
+    if len(grouped.get("cup_size", [])) != 1:
+        flash("Choose one cup size.", "error"); return redirect(url_for("builder"))
+    n_fruits = len(grouped.get("fruit", []))
+    if n_fruits < 1 or n_fruits > 3:
+        flash("Pick between 1 and 3 fruits.", "error"); return redirect(url_for("builder"))
+    if len(grouped.get("base", [])) != 1:
+        flash("Choose one base.", "error"); return redirect(url_for("builder"))
+
+    qty = max(1, int(request.form.get("quantity", 1)))
+    unit_price = sum(r["price"] for r in rows)
+    meta_lines = []
+    for k in ("cup_size", "fruit", "base", "sweetener", "addon", "booster"):
+        if k in grouped:
+            meta_lines.append(f"{k.replace('_', ' ').title()}: {', '.join(grouped[k])}")
+    meta = " · ".join(meta_lines)
+
+    # Optionally save a "named" smoothie for the user
+    save_name = request.form.get("save_name", "").strip()
+    u = current_user()
+    smoothie_id = None
+    if save_name and u:
+        cur_db = get_db()
+        cur_db.execute("""INSERT INTO custom_smoothies (user_id, name, config_json, region, price, currency)
+            VALUES (?,?,?,?,?,?)""", (u["id"], save_name, json.dumps(config), region, unit_price, cur))
+        smoothie_id = cur_db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        cur_db.commit()
+        flash(f"Saved custom smoothie '{save_name}' to your account.", "success")
+
+    cart = get_cart()
+    cart["region"] = region
+    cart["items"].append({
+        "kind": "custom",
+        "name": save_name or "Custom Smoothie",
+        "image": url_for("static", filename="img/custom-cup.svg"),
+        "meta": meta,
+        "unit_price": unit_price,
+        "quantity": qty,
+        "custom_smoothie_id": smoothie_id,
+    })
+    session.modified = True
+    flash("Custom smoothie added to cart.", "success")
+    return redirect(url_for("cart"))
+
+
