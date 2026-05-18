@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Your cart — KCBlendz{% endblock %}
+{% block content %}
+<section class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+  <h1 class="brand text-3xl mb-6">Your cart</h1>
+  {% if items %}
+    <div class="bg-white rounded-2xl shadow-sm divide-y">
+      {% for it in items %}
+        <div class="p-4 flex items-center gap-4">
+          <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-[var(--kc-yellow)] to-[var(--kc-orange)] flex items-center justify-center text-2xl">🥤</div>
+          <div class="flex-1">
+            <p class="font-semibold">{{ it.name }}</p>
+            <p class="text-sm opacity-70">Unit: {{ it.unit }}</p>
+          </div>
+          <form method="POST" action="{{ url_for('cart_update') }}" class="flex items-center gap-2">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="key" value="{{ it.key }}">
+            <input type="number" name="qty" value="{{ it.qty }}" min="0" max="20" class="w-16 px-2 py-1 border rounded">
+            <button class="text-sm px-3 py-1 bg-gray-100 rounded">Update</button>
+          </form>
+          <form method="POST" action="{{ url_for('cart_remove') }}">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="key" value="{{ it.key }}">
+            <button class="text-red-500 text-sm">Remove</button>
+          </form>
+          <p class="w-24 text-right font-bold">{{ it.line }}</p>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="mt-6 flex items-center justify-between">
+      <p class="text-xl">Subtotal: <strong>{{ subtotal }}</strong></p>
+      <a href="/checkout" class="px-6 py-3 bg-[var(--kc-green)] text-white rounded-full font-semibold">Checkout</a>
+    </div>
+  {% else %}
+    <p class="opacity-60">Your cart is empty. <a href="{{ url_for('shop') }}" class="text-[var(--kc-green)] font-semibold">Browse shop →</a></p>
+  {% endif %}
+</section>
+{% endblock %}
