@@ -22,6 +22,8 @@ app.config.update(
     SECRET_KEY=os.environ.get("KCB_SECRET", secrets.token_hex(32)),
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("KCB_FORCE_SECURE", "") == "1",
+    SESSION_COOKIE_NAME="kcb_sess",
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),
     MAX_CONTENT_LENGTH=MAX_UPLOAD_MB * 1024 * 1024,
     UPLOAD_FOLDER=str(UPLOAD_FOLDER),
