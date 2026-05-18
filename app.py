@@ -192,6 +192,47 @@ def close_db(_):
         db.close()
 
 
+
+# ─── DB init / seed ────────────────────────────────────────────────────────
+from security.passwords import hash_password
+
+
+def init_db():
+    """Create tables and seed default categories + admin user."""
+    db = get_db()
+    db.executescript(SCHEMA_SQL)
+    # Seed admin
+    if not db.execute("SELECT 1 FROM users WHERE role = 'admin'").fetchone():
+        db.execute(
+            "INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, 'admin')",
+            ("admin@kcblendz.com", hash_password("Admin1234"), "KCBlendz Admin")
+        )
+    # Seed categories
+    cats = [
+        ("smoothies", "Smoothies", "Real-fruit blends", "🥤", 1),
+        ("juices", "Juices", "Cold-pressed", "🧃", 2),
+        ("wellness", "Wellness", "Boosters & shots", "🌿", 3),
+    ]
+    for slug, name, desc, icon, order in cats:
+        db.execute(
+            "INSERT OR IGNORE INTO categories (slug, name, description, icon, sort_order) VALUES (?, ?, ?, ?, ?)",
+            (slug, name, desc, icon, order)
+        )
+    db.commit()
+
+
+def _ensure_db():
+    if not DB_PATH.exists():
+        with app.app_context():
+            init_db()
+
+
+@app.cli.command("init-db")
+def cli_init_db():
+    """Initialize / seed the database (idempotent)."""
+    init_db()
+    print("Database initialized.")
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template
 from security.passwords import verify_password
