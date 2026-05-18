@@ -276,5 +276,29 @@ class AdminAccessTests(_BaseDB):
         self.assertEqual(r.status_code, 200)
 
 
+
+
+class UploadValidationTests(unittest.TestCase):
+    def test_allowed_file_accepts_image(self):
+        from security.uploads import allowed_file
+        self.assertTrue(allowed_file("smoothie.png"))
+        self.assertTrue(allowed_file("PHOTO.JPG"))
+
+    def test_allowed_file_rejects_script(self):
+        from security.uploads import allowed_file
+        self.assertFalse(allowed_file("evil.exe"))
+        self.assertFalse(allowed_file("payload.php"))
+        self.assertFalse(allowed_file(""))
+
+    def test_safe_save_path_blocks_traversal(self):
+        from security.uploads import safe_save_path
+        import tempfile
+        d = tempfile.mkdtemp()
+        with self.assertRaises(ValueError):
+            safe_save_path(d, "../../etc/passwd")
+        with self.assertRaises(ValueError):
+            safe_save_path(d, "/abs/path.png")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
