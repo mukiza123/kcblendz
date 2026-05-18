@@ -1776,3 +1776,10 @@ def register():
     return render_template("auth/register.html", form={})
 
 
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    flash("You've been signed out.", "info")
+    return redirect(url_for("home"))
+
+
