@@ -1068,6 +1068,22 @@ def admin_user_status(uid):
     flash(f"User marked {new_status}.", "success")
     return redirect(url_for("admin_user_detail", uid=uid))
 
+
+@app.route("/healthz")
+def healthz():
+    """Liveness probe for Docker/Railway. Cheap, no DB hit."""
+    return {"status": "ok"}, 200
+
+
+@app.route("/readyz")
+def readyz():
+    """Readiness probe — verifies we can hit the DB."""
+    try:
+        get_db().execute("SELECT 1").fetchone()
+        return {"status": "ready"}, 200
+    except Exception as e:
+        return {"status": "degraded", "error": str(e)}, 503
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
