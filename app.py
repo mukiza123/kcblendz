@@ -1081,3 +1081,51 @@ def inject_globals():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC ROUTES — store selector, home, shop, builder, content
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/")
+def root():
+    # If no region chosen yet, force the store selector page
+    if not current_region():
+        return redirect(url_for("store_select"))
+    return redirect(url_for("home"))
+
+
+@app.route("/store")
+def store_select():
+    return render_template("public/store_select.html", next_url=request.args.get("next") or url_for("home"))
+
+
+@app.route("/store/<region>", methods=["POST"])
+def store_set(region):
+    if region not in REGIONS:
+        abort(404)
+    session["region"] = region
+    session.modified = True
+    cart_clear_if_region_change()
+    nxt = request.form.get("next") or url_for("home")
+    return redirect(nxt)
+
+
+@app.route("/home")
+@region_required
+def home():
+    cart_clear_if_region_change()
+    db = get_db()
+    region = current_region()
+    avail = availability_field_for(region)
+    price = price_field_for(region)
+    featured = db.execute(f"""SELECT * FROM products WHERE is_active=1 AND {avail}=1 AND is_featured=1
+        ORDER BY id LIMIT 8""").fetchall()
+    bestsellers = db.execute(f"""SELECT * FROM products WHERE is_active=1 AND {avail}=1 AND is_bestseller=1
+        ORDER BY id LIMIT 8""").fetchall()
+    new_in = db.execute(f"""SELECT * FROM products WHERE is_active=1 AND {avail}=1 AND is_new=1
+        ORDER BY id LIMIT 8""").fetchall()
+    categories = db.execute("SELECT * FROM categories WHERE is_active=1 ORDER BY sort_order").fetchall()
+    posts = db.execute("SELECT * FROM blog_posts WHERE is_published=1 ORDER BY created_at DESC LIMIT 4").fetchall()
+    return render_template(
+        "public/home.html",
+        featured=featured, bestsellers=bestsellers, new_in=new_in,
+        categories=categories, posts=posts, price_field=price,
+    )
+
