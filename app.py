@@ -72,3 +72,33 @@ def md_inline(text):
 # ─────────────────────────────────────────────────────────────────────────────
 # DATABASE — schema, connection, init
 # ─────────────────────────────────────────────────────────────────────────────
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    phone TEXT,
+    role TEXT NOT NULL DEFAULT 'customer',  -- customer | admin
+    status TEXT NOT NULL DEFAULT 'active',  -- active | suspended | deleted
+    region TEXT,                            -- preferred region NG / MU / GL
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_login_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS addresses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    label TEXT,
+    full_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    street TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT,
+    country TEXT NOT NULL,
+    postal_code TEXT,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+"""
