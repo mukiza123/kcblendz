@@ -38,3 +38,10 @@ def _fresh_db():
         kc.DB_PATH.unlink()
     kc.init_db()
 
+
+def _csrf(client, route="/login"):
+    """Pull a valid CSRF token after fetching a page that populates the session."""
+    client.get(route)
+    with client.session_transaction() as s:
+        return s.get("_csrf")
+
