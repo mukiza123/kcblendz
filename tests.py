@@ -199,5 +199,22 @@ class LoginTests(_BaseDB):
         self.assertIsNone(uid)
 
 
+
+
+class LogoutTests(_BaseDB):
+    def test_logout_clears_session(self):
+        _login(self.client, "admin@kcblendz.com", "Admin1234")
+        tok = _csrf(self.client, "/")
+        r = self.client.post("/logout", data={"_csrf": tok}, follow_redirects=False)
+        self.assertIn(r.status_code, (200, 302))
+        with self.client.session_transaction() as ses:
+            self.assertIsNone(ses.get("uid"))
+
+    def test_account_requires_login(self):
+        r = self.client.get("/account", follow_redirects=False)
+        # should redirect to login
+        self.assertIn(r.status_code, (302, 401))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
