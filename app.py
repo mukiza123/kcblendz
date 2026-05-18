@@ -1645,3 +1645,76 @@ def order_thanks(order_id):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # WELLNESS HUB
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/wellness")
+def wellness():
+    posts = get_db().execute(
+        "SELECT * FROM blog_posts WHERE is_published=1 ORDER BY created_at DESC"
+    ).fetchall()
+    return render_template("public/wellness.html", posts=posts)
+
+
+@app.route("/wellness/<slug>")
+def wellness_post(slug):
+    db = get_db()
+    p = db.execute("SELECT * FROM blog_posts WHERE slug=? AND is_published=1", (slug,)).fetchone()
+    if not p:
+        abort(404)
+    related = db.execute(
+        "SELECT * FROM blog_posts WHERE id<>? AND is_published=1 ORDER BY RANDOM() LIMIT 3", (p["id"],)
+    ).fetchall()
+    return render_template("public/wellness_post.html", p=p, related=related)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STATIC / CONTENT PAGES
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/about")
+def about(): return render_template("public/about.html")
+@app.route("/contact", methods=["GET", "POST"])
+def contact():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        subject = request.form.get("subject", "").strip()
+        message = request.form.get("message", "").strip()
+        if not name or not valid_email(email) or not message:
+            flash("Please complete all required fields with a valid email.", "error")
+            return redirect(url_for("contact"))
+        get_db().execute("INSERT INTO contact_messages (name, email, subject, message) VALUES (?,?,?,?)",
+                         (name, email, subject, message))
+        get_db().commit()
+        notify_admins(f"New contact message from {name}", subject or message[:80])
+        flash("Thanks — we'll get back to you within 24 hours.", "success")
+        return redirect(url_for("contact"))
+    return render_template("public/contact.html")
+@app.route("/faq")
+def faq(): return render_template("public/faq.html")
+@app.route("/privacy")
+def privacy(): return render_template("public/privacy.html")
+@app.route("/terms")
+def terms(): return render_template("public/terms.html")
+@app.route("/refund-policy")
+def refund_policy(): return render_template("public/refund.html")
+@app.route("/shipping-policy")
+def shipping_policy(): return render_template("public/shipping.html")
+
+
+@app.route("/newsletter/subscribe", methods=["POST"])
+def newsletter_subscribe():
+    email = request.form.get("email", "").strip().lower()
+    if not valid_email(email):
+        flash("Please enter a valid email address.", "error")
+        return redirect(request.referrer or url_for("home"))
+    try:
+        get_db().execute("INSERT INTO newsletter_subscribers (email, region) VALUES (?,?)",
+                         (email, current_region()))
+        get_db().commit()
+        flash("You're in — welcome to the KCBlendz family.", "success")
+    except sqlite3.IntegrityError:
+        flash("You're already subscribed — thanks for being with us.", "info")
+    return redirect(request.referrer or url_for("home"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AUTHENTICATION
