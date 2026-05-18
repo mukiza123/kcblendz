@@ -35,6 +35,15 @@ def _fresh_db():
             kc.init_db()
 
 
+
+
+def _csrf(client, route="/login"):
+    """Pull a valid CSRF token after fetching a page that populates the session."""
+    client.get(route, follow_redirects=True)
+    with client.session_transaction() as ses:
+        return ses.get("_csrf")
+
+
 class _BaseDB(unittest.TestCase):
     def setUp(self):
         _fresh_db()
