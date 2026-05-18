@@ -14,10 +14,19 @@ def allowed_file(filename: str) -> bool:
 
 
 def safe_save_path(upload_dir: str, filename: str) -> str:
+    if not filename:
+        raise ValueError("Unsafe filename.")
+    # Reject obvious traversal attempts before secure_filename strips them
+    if ".." in filename or filename.startswith(("/", "\\")):
+        raise ValueError("Filename contains illegal path components.")
     name = secure_filename(filename)
     if not name:
         raise ValueError("Unsafe filename.")
-    return os.path.join(upload_dir, name)
+    # Final guard: resolved path must remain inside upload_dir
+    full = os.path.abspath(os.path.join(upload_dir, name))
+    if not full.startswith(os.path.abspath(upload_dir) + os.sep):
+        raise ValueError("Path escapes upload directory.")
+    return full
 
 
 def sanitize_filename(name: str) -> str:
