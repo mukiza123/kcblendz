@@ -300,5 +300,30 @@ class UploadValidationTests(unittest.TestCase):
             safe_save_path(d, "/abs/path.png")
 
 
+
+
+class CartAddTests(_BaseDB):
+    def _seed_product(self):
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute(
+                "INSERT INTO products (slug, name, price_mur, is_active) VALUES (?, ?, ?, 1)",
+                ("tropical-burst", "Tropical Burst", 200.0)
+            )
+            db.commit()
+            return db.execute("SELECT id FROM products WHERE slug = 'tropical-burst'").fetchone()["id"]
+
+    def test_add_to_cart_inserts_line(self):
+        pid = self._seed_product()
+        tok = _csrf(self.client, "/")
+        r = self.client.post("/cart/add",
+                             data={"_csrf": tok, "product_id": str(pid), "qty": "2"},
+                             follow_redirects=False)
+        with self.client.session_transaction() as ses:
+            cart = ses.get("cart", [])
+        self.assertEqual(len(cart), 1)
+        self.assertEqual(cart[0]["qty"], 2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
