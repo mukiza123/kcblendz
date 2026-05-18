@@ -1783,3 +1783,18 @@ def logout():
     return redirect(url_for("home"))
 
 
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        # Demo flow: in production, send a token email. Here we display a deterministic reset link if user exists.
+        email = request.form.get("email", "").strip().lower()
+        u = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if u:
+            flash("If an account with that email exists, password reset instructions have been sent.", "info")
+        else:
+            flash("If an account with that email exists, password reset instructions have been sent.", "info")
+        return redirect(url_for("login"))
+    return render_template("auth/forgot.html")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
