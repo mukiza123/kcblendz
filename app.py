@@ -134,6 +134,30 @@ CREATE TABLE IF NOT EXISTS favorites (
     UNIQUE(user_id, product_id)
 );
 
+
+CREATE TABLE IF NOT EXISTS builder_options (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    option_type TEXT NOT NULL,
+    name TEXT NOT NULL,
+    price_ngn REAL NOT NULL DEFAULT 0,
+    price_mur REAL NOT NULL DEFAULT 0,
+    price_usd REAL NOT NULL DEFAULT 0,
+    image_url TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS custom_smoothies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    config_json TEXT NOT NULL,
+    region TEXT NOT NULL,
+    price REAL NOT NULL,
+    currency TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS reviews (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -305,6 +329,42 @@ def product_detail(slug):
         (product["id"],)
     ).fetchone()
     return render_template("public/product.html", product=product, reviews=reviews, avg=avg)
+
+
+@app.route("/builder")
+def builder():
+    db = get_db()
+    options = db.execute(
+        "SELECT * FROM builder_options WHERE is_active = 1 ORDER BY option_type, sort_order"
+    ).fetchall()
+    grouped = {}
+    for o in options:
+        grouped.setdefault(o["option_type"], []).append(dict(o))
+    return render_template("public/builder.html", options=grouped)
+
+
+@app.route("/api/builder/price", methods=["POST"])
+def api_builder_price():
+    from flask import jsonify
+    payload = request.get_json(silent=True) or {}
+    selected_ids = []
+    for key in ("cup_size", "base", "fruits", "sweeteners", "addons", "boosters"):
+        v = payload.get(key)
+        if isinstance(v, list):
+            selected_ids.extend(int(x) for x in v if str(x).isdigit())
+        elif v is not None and str(v).isdigit():
+            selected_ids.append(int(v))
+    if not selected_ids:
+        return jsonify({"price": 0, "currency": session.get("region", "MU")})
+    placeholders = ",".join("?" for _ in selected_ids)
+    rows = get_db().execute(
+        f"SELECT price_mur, price_ngn, price_usd FROM builder_options WHERE id IN ({placeholders})",
+        selected_ids
+    ).fetchall()
+    region = session.get("region", "MU")
+    field = {"MU": "price_mur", "NG": "price_ngn", "GL": "price_usd"}[region]
+    total = round(sum((r[field] or 0) for r in rows), 2)
+    return jsonify({"price": total, "currency": region})
 
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
