@@ -46,3 +46,29 @@ Then open <http://localhost:5000>.
 | `PORT`             | Web server bind port (injected by Railway/Heroku).      | `5000`       |
 
 See `.env.example` for a template. Never commit `.env`.
+
+## Deployment
+
+### Railway (recommended)
+
+1. Push to GitHub.
+2. Create a new Railway project, "Deploy from GitHub".
+3. Railway auto-detects `railway.json` and the `Procfile`.
+4. Add the variables from `.env.example` in the Railway dashboard.
+5. Set `KCB_FORCE_SECURE=1` once your custom domain is on HTTPS.
+
+### Heroku
+
+```bash
+heroku create kcblendz
+heroku config:set KCB_SECRET="$(py -c 'import secrets;print(secrets.token_hex(32))')"
+heroku config:set KCB_FORCE_SECURE=1
+git push heroku main
+heroku run flask --app app init-db
+```
+
+### Generic gunicorn host
+
+```bash
+gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 --preload
+```
