@@ -297,3 +297,56 @@ class AuthorizationTests(unittest.TestCase):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Favorites + Reviews
+# ─────────────────────────────────────────────────────────────────────────────
+class FavoritesAndReviewsTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _fresh_db()
+        cls.client = kc.app.test_client()
+        with cls.client.session_transaction() as s:
+            s["region"] = "MU"
+        # Register a customer
+        tok = _csrf(cls.client, "/register")
+        cls.client.post("/register", data={
+            "_csrf": tok, "full_name": "Fav Test", "email": "fav@kc.com",
+            "phone": "+23055558888", "password": "aaaaaaaa",
+        })
+        with cls.client.session_transaction() as s:
+            s["region"] = "MU"
+        # Pick a real product
+        with kc.app.app_context():
+            row = kc.get_db().execute(
+                "SELECT id, slug FROM products WHERE is_available_mu=1 LIMIT 1"
+            ).fetchone()
+        cls.pid, cls.pslug = row["id"], row["slug"]
+
+    def test_favorite_toggle_adds_and_removes(self):
+        tok = _csrf(self.client, "/shop")
+        r = self.client.post(
+            f"/favorites/toggle/{self.pid}", data={"_csrf": tok},
+            headers={"X-Requested-With": "XMLHttpRequest"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json["action"], "added")
+        # Toggle again -> removed
+        tok = _csrf(self.client, "/shop")
+        r = self.client.post(
+            f"/favorites/toggle/{self.pid}", data={"_csrf": tok},
+            headers={"X-Requested-With": "XMLHttpRequest"})
+        self.assertEqual(r.json["action"], "removed")
+
+    def test_favorite_toggle_requires_login(self):
+        client = kc.app.test_client()
+        with client.session_transaction() as s:
+            s["region"] = "MU"
+        tok = _csrf(client, "/shop")
+        r = client.post(f"/favorites/toggle/{self.pid}", data={"_csrf": tok},
+                        follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/login", r.headers["Location"])
+
+    def test_favorite_toggle_404_on_missing_product(self):
+        tok = _csrf(self.client, "/shop")
+        r = self.client.post("/favorites/toggle/9999999", data={"_csrf": tok},
+                             headers={"X-Requested-With": "XMLHttpRequest"})
+        self.assertEqual(r.status_code, 404)
+
