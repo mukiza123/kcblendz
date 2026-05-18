@@ -282,3 +282,15 @@ Older CSS tokens (`--fuchsia`, `--lime`, `--sky`, `--purple`) are aliased to the
 
 The entire backend lives in **one file** (`app.py`) by design: routes, schema, seeds and business logic in one place make it easy to onboard a new contributor in 20 minutes and easy to grade in one read-through.
 
+## Security model
+
+- **CSRF** — every POST form carries a hashed token; the token rotates on login (`session.clear()` then re-issue).
+- **Password storage** — bcrypt via `werkzeug.security.generate_password_hash`. The default admin password is hashed at seed time.
+- **Card data** — only the brand and last 4 digits are persisted. The PAN is validated server-side via Luhn and then discarded.
+- **Role decorators** — `@login_required`, `@admin_required`, `@region_required` on every protected route.
+- **Soft deletes** — products and customers are deactivated, never hard-removed.
+- **Audit log** — every admin mutation is written to the `audit_logs` table.
+- **Security headers** — X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy on every response.
+- **File uploads** — extension allowlist (`png, jpg, jpeg, gif, webp`), 8 MB cap, secure filename.
+- **Admin separation** — admins see an admin-only dropdown (no favorites heart, no cart icon, no customer "My Orders"); the sandbox test cards on the payment page are gated behind `current_user().role == 'admin'`.
+
