@@ -585,6 +585,44 @@ def order_thanks(order_id):
         abort(404)
     return render_template("public/order_thanks.html", order=order)
 
+
+# ─── Account ───────────────────────────────────────────────────────────────
+from security.decorators import login_required
+
+
+@app.route("/account")
+@login_required
+def account_dashboard():
+    db = get_db()
+    uid = session["uid"]
+    user = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    orders = db.execute(
+        "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5", (uid,)
+    ).fetchall()
+    return render_template("account/dashboard.html", user=user, orders=orders)
+
+
+@app.route("/account/orders")
+@login_required
+def account_orders():
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC", (session["uid"],)
+    ).fetchall()
+    return render_template("account/orders.html", orders=rows)
+
+
+@app.route("/account/orders/<int:order_id>")
+@login_required
+def account_order_detail(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ? AND user_id = ?",
+                       (order_id, session["uid"])).fetchone()
+    if not order:
+        abort(404)
+    items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+    return render_template("account/order_detail.html", order=order, items=items)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
