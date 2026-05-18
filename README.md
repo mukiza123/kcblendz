@@ -109,3 +109,48 @@ Test coverage summary:
 | `SandboxVisibilityTests` | Admin sees sandbox test cards on the payment page; guests and customers do not                          |
 | `SeedDataTests`          | Admin user, products, blog posts, reviews and builder options all seed correctly; every product has a real http image URL |
 
+## Project structure
+
+```
+kcblendz/
+├── app.py                  # Monolithic Flask app — routes, schema, seed data, business logic
+├── tests.py                # 53 unit tests
+├── requirements.txt        # Flask + Werkzeug
+├── kcblendz.db             # SQLite, created on first import
+├── README.md
+├── docs/
+│   ├── TRELLO_BOARD.md     # Sprint board template (lists, cards, subtasks)
+│   └── GITHUB_COMMITS.md   # 125 commit messages across 5 team members
+├── static/
+│   ├── img/
+│   │   ├── logo.png                 # The round glassy KCBlendz logo
+│   │   ├── kcblendz-video.mp4       # The brand video on hero, region picker, builder preview
+│   │   ├── kcblendz-catalog.jpeg    # Printed menu used as the pricing source
+│   │   ├── kcblendz-product.png
+│   │   ├── kcblendz-products.png
+│   │   └── custom-cup.svg
+│   ├── uploads/                     # Admin uploads + customer payment proofs
+│   ├── css/  &  js/                 # Reserved for future custom assets
+└── templates/
+    ├── base.html                    # Brand palette, performance hints, WhatsApp button, flash UI
+    ├── partials/
+    │   ├── nav.html                 # Role-aware navigation (admin vs customer)
+    │   └── footer.html              # Newsletter, address, payment badges
+    ├── public/                      # All customer-facing pages
+    │   ├── store_select.html        # Region picker with video background
+    │   ├── home.html                # Hero with KCBlendz video
+    │   ├── shop.html                # Filterable product grid
+    │   ├── _product_card.html       # Shared product card with onerror fallback
+    │   ├── product.html             # Detail + reviews + favorites + related
+    │   ├── builder.html             # Custom smoothie builder with live video preview
+    │   ├── cart.html, checkout.html
+    │   ├── payment.html             # Real card-entry flow with live brand detection
+    │   ├── order_thanks.html
+    │   ├── wellness.html, wellness_post.html  # Long-form blog with markdown rendering
+    │   ├── about.html, contact.html, faq.html
+    │   └── privacy.html, terms.html, refund.html, shipping.html
+    ├── auth/                        # login.html, register.html, forgot.html
+    ├── account/                     # dashboard, orders, favorites, saved_smoothies, addresses, profile, notifications
+    └── admin/                       # dashboard, products, orders, users, categories, blogs, builder_config, reports, profile, messages, notifications
+```
+
