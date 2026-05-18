@@ -361,5 +361,27 @@ class CartUpdateRemoveTests(_BaseDB):
         self.assertEqual(cart, [])
 
 
+
+
+class CartSubtotalTests(_BaseDB):
+    def test_subtotal_reflects_multiple_items(self):
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute("INSERT INTO products (slug,name,price_mur,is_active) VALUES (?,?,?,1)",
+                       ("a", "A", 100.0))
+            db.execute("INSERT INTO products (slug,name,price_mur,is_active) VALUES (?,?,?,1)",
+                       ("b", "B", 50.0))
+            db.commit()
+            pa = db.execute("SELECT id FROM products WHERE slug='a'").fetchone()["id"]
+            pb = db.execute("SELECT id FROM products WHERE slug='b'").fetchone()["id"]
+        tok = _csrf(self.client, "/")
+        self.client.post("/cart/add", data={"_csrf": tok, "product_id": str(pa), "qty": "2"})
+        tok = _csrf(self.client, "/")
+        self.client.post("/cart/add", data={"_csrf": tok, "product_id": str(pb), "qty": "3"})
+        r = self.client.get("/cart")
+        # 2*100 + 3*50 = 350
+        self.assertIn(b"350", r.data)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
