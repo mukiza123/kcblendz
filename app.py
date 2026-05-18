@@ -999,11 +999,16 @@ def _md_inline(text):
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
+from security.ratelimit import hit as _rate_hit
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "x")
+        if not _rate_hit(f"login:{ip}", limit=5, window_sec=60):
+            flash("Too many login attempts. Please try again in a minute.", "error")
+            return render_template("auth/login.html")
         email = (request.form.get("email") or "").strip().lower()
         password = request.form.get("password") or ""
         db = get_db()
