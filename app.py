@@ -987,3 +987,14 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXT
 
 
+def save_upload(file_storage):
+    if not file_storage or file_storage.filename == "" or not allowed_file(file_storage.filename):
+        return None
+    fn = secure_filename(file_storage.filename)
+    stem, ext = os.path.splitext(fn)
+    safe = f"{stem}-{secrets.token_hex(6)}{ext}"
+    file_storage.save(UPLOAD_FOLDER / safe)
+    return url_for("static", filename=f"uploads/{safe}")
+
+
+# CSRF — lightweight, session-bound
