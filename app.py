@@ -478,6 +478,73 @@ def cart_remove():
     session.modified = True
     return redirect(url_for("cart"))
 
+
+# ─── Checkout ──────────────────────────────────────────────────────────────
+def _delivery_fee_for(region):
+    return {"MU": 50, "NG": 1500, "GL": 10}.get(region, 0)
+
+
+@app.route("/checkout", methods=["GET", "POST"])
+def checkout():
+    if not _get_cart():
+        flash("Your cart is empty.", "error")
+        return redirect(url_for("cart"))
+
+    db = get_db()
+    subtotal = 0.0
+    for ln in _get_cart():
+        if ln.get("type") == "product":
+            p = db.execute("SELECT * FROM products WHERE id = ?", (ln["product_id"],)).fetchone()
+            if p:
+                price = p["price_mur"] or p["price_ngn"] or p["price_usd"] or 0
+                subtotal += price * ln["qty"]
+        else:
+            subtotal += ln["price"] * ln["qty"]
+
+    region = session.get("region", "MU")
+    fee = _delivery_fee_for(region)
+    total = round(subtotal + fee, 2)
+
+    if request.method == "POST":
+        full_name = (request.form.get("full_name") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        phone = (request.form.get("phone") or "").strip()
+        if not (full_name and email and phone):
+            flash("Please fill in all fields.", "error")
+        else:
+            import uuid
+            order_number = "KCB-" + uuid.uuid4().hex[:10].upper()
+            cur = db.execute(
+                """INSERT INTO orders (order_number, user_id, guest_email, full_name, email,
+                   phone, region, currency, subtotal, delivery_fee, total)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (order_number, session.get("uid"), None if session.get("uid") else email,
+                 full_name, email, phone, region, region, subtotal, fee, total)
+            )
+            order_id = cur.lastrowid
+            for ln in _get_cart():
+                if ln.get("type") == "product":
+                    p = db.execute("SELECT * FROM products WHERE id = ?", (ln["product_id"],)).fetchone()
+                    if not p:
+                        continue
+                    price = p["price_mur"] or p["price_ngn"] or p["price_usd"] or 0
+                    db.execute(
+                        """INSERT INTO order_items (order_id, product_id, item_type, name_snapshot,
+                           unit_price, quantity, line_total) VALUES (?, ?, 'product', ?, ?, ?, ?)""",
+                        (order_id, p["id"], p["name"], price, ln["qty"], price * ln["qty"])
+                    )
+                else:
+                    db.execute(
+                        """INSERT INTO order_items (order_id, item_type, name_snapshot, unit_price,
+                           quantity, line_total) VALUES (?, 'builder', ?, ?, ?, ?)""",
+                        (order_id, ln["name"], ln["price"], ln["qty"], ln["price"] * ln["qty"])
+                    )
+            db.commit()
+            return redirect(url_for("payment", order_id=order_id))
+
+    return render_template("public/checkout.html",
+                           subtotal=subtotal, fee=fee, total=total, region=region)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
