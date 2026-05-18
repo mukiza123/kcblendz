@@ -405,5 +405,29 @@ class CheckoutFlowTests(_BaseDB):
         self.assertIn(b"Checkout", r.data)
 
 
+
+
+class OrderCreationTests(_BaseDB):
+    def test_checkout_post_creates_order(self):
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute("INSERT INTO products (slug,name,price_mur,is_active) VALUES (?,?,?,1)",
+                       ("oc", "OC Blend", 300.0))
+            db.commit()
+            pid = db.execute("SELECT id FROM products WHERE slug='oc'").fetchone()["id"]
+
+        tok = _csrf(self.client, "/")
+        self.client.post("/cart/add", data={"_csrf": tok, "product_id": str(pid), "qty": "1"})
+        tok = _csrf(self.client, "/checkout")
+        r = self.client.post("/checkout", data={
+            "_csrf": tok, "full_name": "Test User", "email": "t@e.com", "phone": "+23012345678",
+            "street": "1 Test St", "city": "Port Louis", "postal_code": "11000",
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        with kc.app.app_context():
+            row = kc.get_db().execute("SELECT COUNT(*) AS n FROM orders").fetchone()
+            self.assertEqual(row["n"], 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
