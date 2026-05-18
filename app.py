@@ -40,3 +40,35 @@ UPLOAD_FOLDER = BASE_DIR / "static" / "uploads"
 ALLOWED_IMAGE_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
 MAX_UPLOAD_MB = 8
 
+app = Flask(__name__)
+app.config.update(
+    SECRET_KEY=os.environ.get("KCB_SECRET", secrets.token_hex(32)),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    MAX_CONTENT_LENGTH=MAX_UPLOAD_MB * 1024 * 1024,
+    UPLOAD_FOLDER=str(UPLOAD_FOLDER),
+)
+UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
+
+@app.template_filter("mdinline")
+def md_inline(text):
+    """Render inline markdown safely: **bold**, *italic*, `code`,
+    [label](url). Escapes HTML first so article content can't inject markup,
+    then applies a small, safe subset. Fixes the literal ** showing on the
+    wellness article pages."""
+    from markupsafe import Markup, escape
+    s = str(escape(text or ""))
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    s = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<em>\1</em>", s)
+    s = re.sub(r"`(.+?)`",
+               r'<code class="bg-gray-100 px-1 rounded">\1</code>', s)
+    s = re.sub(r"\[([^\]]+)\]\((https?://[^\s)]+)\)",
+               r'<a href="\2" class="link" target="_blank" rel="noopener">\1</a>', s)
+    return Markup(s)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DATABASE — schema, connection, init
+# ─────────────────────────────────────────────────────────────────────────────
