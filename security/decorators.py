@@ -20,3 +20,12 @@ def admin_required(view):
             abort(403)
         return view(*a, **kw)
     return wrapped
+
+
+def region_required(view):
+    @wraps(view)
+    def wrapped(*a, **kw):
+        if not session.get("region"):
+            return redirect(url_for("store_select"))
+        return view(*a, **kw)
+    return wrapped
