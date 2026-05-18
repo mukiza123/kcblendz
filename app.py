@@ -234,7 +234,7 @@ def cli_init_db():
     print("Database initialized.")
 
 # ─── Auth ──────────────────────────────────────────────────────────────────
-from flask import request, redirect, url_for, session, flash, render_template
+from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
 
 
@@ -299,7 +299,30 @@ def logout():
 
 @app.route("/")
 def root():
-    return "KCBlendz is alive."
+    return redirect(url_for("home"))
+
+
+@app.route("/store")
+def store_select():
+    return render_template("public/store_select.html")
+
+
+@app.route("/store/<region>", methods=["POST"])
+def store_set(region):
+    region = (region or "").upper()
+    if region not in ("NG", "MU", "GL"):
+        abort(400)
+    session["region"] = region
+    return redirect(url_for("home"))
+
+
+@app.route("/home")
+def home():
+    db = get_db()
+    featured = db.execute(
+        "SELECT * FROM products WHERE is_featured = 1 AND is_active = 1 LIMIT 8"
+    ).fetchall()
+    return render_template("public/home.html", featured=featured)
 
 
 if __name__ == "__main__":
