@@ -919,3 +919,11 @@ def format_money(amount, region):
     return f"{info['symbol']}{amount:,.0f}"
 
 
+def current_user():
+    uid = session.get("uid")
+    if not uid:
+        return None
+    row = get_db().execute("SELECT * FROM users WHERE id=? AND status='active'", (uid,)).fetchone()
+    return row
+
+
