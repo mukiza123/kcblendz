@@ -429,5 +429,27 @@ class OrderCreationTests(_BaseDB):
             self.assertEqual(row["n"], 1)
 
 
+
+
+class AdminDashboardTests(_BaseDB):
+    def test_dashboard_loads_for_admin(self):
+        _login(self.client, "admin@kcblendz.com", "Admin1234")
+        r = self.client.get("/admin", follow_redirects=False)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b"Dashboard", r.data)
+
+    def test_reports_loads_for_admin(self):
+        _login(self.client, "admin@kcblendz.com", "Admin1234")
+        r = self.client.get("/admin/reports", follow_redirects=False)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(b"Reports", r.data)
+
+    def test_users_export_is_csv(self):
+        _login(self.client, "admin@kcblendz.com", "Admin1234")
+        r = self.client.get("/admin/users/export.csv")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/csv", r.headers.get("Content-Type", ""))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
