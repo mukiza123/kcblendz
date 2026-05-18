@@ -280,6 +280,23 @@ def shop():
     return render_template("public/shop.html",
                            products=products, categories=cats, q=q, cat=cat, sort=sort)
 
+
+@app.route("/product/<slug>")
+def product_detail(slug):
+    db = get_db()
+    product = db.execute("SELECT * FROM products WHERE slug = ? AND is_active = 1", (slug,)).fetchone()
+    if not product:
+        abort(404)
+    reviews = db.execute(
+        "SELECT r.*, u.full_name FROM reviews r LEFT JOIN users u ON u.id = r.user_id "
+        "WHERE r.product_id = ? ORDER BY r.created_at DESC", (product["id"],)
+    ).fetchall()
+    avg = db.execute(
+        "SELECT ROUND(AVG(rating),1) AS avg, COUNT(*) AS n FROM reviews WHERE product_id = ?",
+        (product["id"],)
+    ).fetchone()
+    return render_template("public/product.html", product=product, reviews=reviews, avg=avg)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
