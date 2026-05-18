@@ -2368,3 +2368,299 @@ def admin_users_export():
 
 
 # Blogs
+@app.route("/admin/blogs")
+@admin_required
+def admin_blogs():
+    posts = get_db().execute("SELECT * FROM blog_posts ORDER BY created_at DESC").fetchall()
+    return render_template("admin/blogs.html", posts=posts)
+
+
+@app.route("/admin/blogs/new", methods=["GET", "POST"])
+@admin_required
+def admin_blog_new():
+    if request.method == "POST":
+        return admin_blog_save(None)
+    return render_template("admin/blog_form.html", p=None)
+
+
+@app.route("/admin/blogs/<int:pid>/edit", methods=["GET", "POST"])
+@admin_required
+def admin_blog_edit(pid):
+    p = get_db().execute("SELECT * FROM blog_posts WHERE id=?", (pid,)).fetchone()
+    if not p: abort(404)
+    if request.method == "POST":
+        return admin_blog_save(p)
+    return render_template("admin/blog_form.html", p=p)
+
+
+def admin_blog_save(p):
+    f = request.form
+    title = f.get("title", "").strip()
+    if not title:
+        flash("Title is required.", "error")
+        return render_template("admin/blog_form.html", p=p)
+    slug = f.get("slug", "").strip().lower() or re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    cover = f.get("cover_url", "").strip()
+    cover_file = request.files.get("cover_file")
+    if cover_file and cover_file.filename:
+        u = save_upload(cover_file)
+        if u: cover = u
+    fields = dict(
+        slug=slug, title=title,
+        subtitle=f.get("subtitle", "").strip(),
+        cover_url=cover,
+        category=f.get("category", "WELLNESS").strip().upper(),
+        author=f.get("author", "KC Team").strip(),
+        content=f.get("content", "").strip(),
+        read_minutes=int(f.get("read_minutes") or 4),
+        is_published=1 if f.get("is_published") else 0,
+    )
+    db = get_db()
+    if p is None:
+        cols = ",".join(fields.keys()); ph = ",".join("?" for _ in fields)
+        try:
+            db.execute(f"INSERT INTO blog_posts ({cols}) VALUES ({ph})", tuple(fields.values()))
+        except sqlite3.IntegrityError:
+            flash("Slug must be unique.", "error")
+            return render_template("admin/blog_form.html", p=p)
+        flash("Blog post created.", "success")
+    else:
+        fields["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        sets = ",".join(f"{k}=?" for k in fields.keys())
+        db.execute(f"UPDATE blog_posts SET {sets} WHERE id=?", tuple(fields.values()) + (p["id"],))
+        flash("Blog post updated.", "success")
+    db.commit()
+    return redirect(url_for("admin_blogs"))
+
+
+@app.route("/admin/blogs/<int:pid>/delete", methods=["POST"])
+@admin_required
+def admin_blog_delete(pid):
+    get_db().execute("DELETE FROM blog_posts WHERE id=?", (pid,))
+    get_db().commit()
+    flash("Blog post deleted.", "info")
+    return redirect(url_for("admin_blogs"))
+
+
+# Builder configuration
+@app.route("/admin/builder", methods=["GET", "POST"])
+@admin_required
+def admin_builder():
+    if request.method == "POST":
+        # add new option
+        opt_type = request.form.get("option_type")
+        name = request.form.get("name", "").strip()
+        if opt_type in ("cup_size", "fruit", "base", "sweetener", "addon", "booster") and name:
+            get_db().execute("""INSERT INTO builder_options (option_type, name, price_ngn, price_mur, price_usd)
+                VALUES (?,?,?,?,?)""", (opt_type, name,
+                                        float(request.form.get("price_ngn") or 0),
+                                        float(request.form.get("price_mur") or 0),
+                                        float(request.form.get("price_usd") or 0)))
+            get_db().commit()
+            flash("Builder option added.", "success")
+        return redirect(url_for("admin_builder"))
+    opts = get_db().execute("SELECT * FROM builder_options ORDER BY option_type, sort_order").fetchall()
+    grouped = {}
+    for o in opts:
+        grouped.setdefault(o["option_type"], []).append(o)
+    return render_template("admin/builder_config.html", grouped=grouped)
+
+
+@app.route("/admin/builder/<int:oid>/delete", methods=["POST"])
+@admin_required
+def admin_builder_delete(oid):
+    get_db().execute("DELETE FROM builder_options WHERE id=?", (oid,))
+    get_db().commit()
+    flash("Option removed.", "info")
+    return redirect(url_for("admin_builder"))
+
+
+# Reports
+@app.route("/admin/reports")
+@admin_required
+def admin_reports():
+    db = get_db()
+    daily = db.execute("""SELECT date(created_at) AS d, COUNT(*) AS n, COALESCE(SUM(total),0) AS v, region
+        FROM orders WHERE payment_status='paid' AND date(created_at)>=date('now','-30 days')
+        GROUP BY date(created_at), region ORDER BY d DESC""").fetchall()
+    monthly = db.execute("""SELECT strftime('%Y-%m', created_at) AS m, COUNT(*) AS n, COALESCE(SUM(total),0) AS v, region
+        FROM orders WHERE payment_status='paid' GROUP BY m, region ORDER BY m DESC LIMIT 12""").fetchall()
+    top_products = db.execute("""SELECT oi.item_name, SUM(oi.quantity) AS qty, SUM(oi.line_total) AS revenue
+        FROM order_items oi JOIN orders o ON o.id=oi.order_id
+        WHERE o.payment_status='paid'
+        GROUP BY oi.item_name ORDER BY qty DESC LIMIT 10""").fetchall()
+    growth = db.execute("""SELECT date(created_at) AS d, COUNT(*) AS n
+        FROM users WHERE role='customer' AND date(created_at)>=date('now','-30 days')
+        GROUP BY date(created_at) ORDER BY d""").fetchall()
+    region_compare = db.execute("""SELECT region, COUNT(*) AS n, COALESCE(SUM(total),0) AS v
+        FROM orders WHERE payment_status='paid' GROUP BY region""").fetchall()
+    return render_template("admin/reports.html",
+                           daily=daily, monthly=monthly, top_products=top_products,
+                           growth=growth, region_compare=region_compare)
+
+
+# Admin notifications
+@app.route("/admin/notifications")
+@admin_required
+def admin_notifications():
+    u = current_user()
+    notifs = get_db().execute(
+        "SELECT * FROM notifications WHERE audience='admin' AND user_id=? ORDER BY created_at DESC LIMIT 200", (u["id"],)
+    ).fetchall()
+    get_db().execute(
+        "UPDATE notifications SET is_read=1 WHERE audience='admin' AND user_id=? AND is_read=0", (u["id"],)
+    )
+    get_db().commit()
+    return render_template("admin/notifications.html", notifs=notifs)
+
+
+# Admin contact messages
+@app.route("/admin/messages")
+@admin_required
+def admin_messages():
+    msgs = get_db().execute("SELECT * FROM contact_messages ORDER BY created_at DESC").fetchall()
+    return render_template("admin/messages.html", msgs=msgs)
+
+
+# Admin profile / account settings
+@app.route("/admin/profile", methods=["GET", "POST"])
+@admin_required
+def admin_profile():
+    u = current_user()
+    db = get_db()
+    if request.method == "POST":
+        action = request.form.get("action", "details")
+        if action == "details":
+            full_name = request.form.get("full_name", "").strip()
+            email = request.form.get("email", "").strip().lower()
+            phone = request.form.get("phone", "").strip()
+            if not full_name or not valid_email(email):
+                flash("A valid name and email are required.", "error")
+                return redirect(url_for("admin_profile"))
+            clash = db.execute(
+                "SELECT 1 FROM users WHERE email=? AND id<>?", (email, u["id"])
+            ).fetchone()
+            if clash:
+                flash("That email is already in use by another account.", "error")
+                return redirect(url_for("admin_profile"))
+            db.execute(
+                "UPDATE users SET full_name=?, email=?, phone=? WHERE id=?",
+                (full_name, email, phone, u["id"]),
+            )
+            db.commit()
+            audit("admin.profile.update", "user", u["id"])
+            flash("Profile details updated.", "success")
+        elif action == "password":
+            cur = request.form.get("current_password", "")
+            new = request.form.get("new_password", "")
+            conf = request.form.get("confirm_password", "")
+            if not check_password_hash(u["password_hash"], cur):
+                flash("Current password is incorrect.", "error")
+            elif len(new) < 8:
+                flash("New password must be at least 8 characters.", "error")
+            elif new != conf:
+                flash("New passwords do not match.", "error")
+            else:
+                db.execute(
+                    "UPDATE users SET password_hash=? WHERE id=?",
+                    (generate_password_hash(new), u["id"]),
+                )
+                db.commit()
+                audit("admin.profile.password", "user", u["id"])
+                flash("Password changed successfully.", "success")
+        return redirect(url_for("admin_profile"))
+    stats = {
+        "orders": db.execute("SELECT COUNT(*) c FROM orders").fetchone()["c"],
+        "products": db.execute("SELECT COUNT(*) c FROM products").fetchone()["c"],
+        "users": db.execute("SELECT COUNT(*) c FROM users").fetchone()["c"],
+    }
+    return render_template("admin/profile.html", u=u, stats=stats)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SEO — sitemap & robots
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/sitemap.xml")
+def sitemap():
+    db = get_db()
+    base = request.url_root.rstrip("/")
+    urls = [
+        "/", "/store", "/home", "/shop", "/builder", "/wellness",
+        "/about", "/contact", "/faq", "/privacy", "/terms",
+        "/refund-policy", "/shipping-policy",
+    ]
+    for p in db.execute("SELECT slug FROM products WHERE is_active=1").fetchall():
+        urls.append(f"/product/{p['slug']}")
+    for b in db.execute("SELECT slug FROM blog_posts WHERE is_published=1").fetchall():
+        urls.append(f"/wellness/{b['slug']}")
+    body = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    for u in urls:
+        body += f"<url><loc>{base}{u}</loc></url>"
+    body += "</urlset>"
+    resp = make_response(body)
+    resp.headers["Content-Type"] = "application/xml"
+    return resp
+
+
+@app.route("/robots.txt")
+def robots():
+    body = f"User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /account\nSitemap: {request.url_root}sitemap.xml\n"
+    resp = make_response(body)
+    resp.headers["Content-Type"] = "text/plain"
+    return resp
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR HANDLERS
+# ─────────────────────────────────────────────────────────────────────────────
+@app.errorhandler(403)
+def err_403(e): return render_template("public/error.html", code=403, title="Forbidden",
+                                       msg="You don't have access to this page."), 403
+@app.errorhandler(404)
+def err_404(e): return render_template("public/error.html", code=404, title="Not found",
+                                       msg="The page you were looking for has wandered off."), 404
+@app.errorhandler(500)
+def err_500(e): return render_template("public/error.html", code=500, title="Something broke",
+                                       msg="We're on it. Please try again in a moment."), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI
+# ─────────────────────────────────────────────────────────────────────────────
+@app.cli.command("init-db")
+def cli_init_db():
+    init_db()
+    print(f"Database initialised at {DB_PATH}")
+
+
+def _ensure_db():
+    """Initialise the database if it does not yet exist.
+
+    Runs on import so production WSGI servers (gunicorn on Railway/Render/etc.)
+    have a ready database — fixes the 'database missing on startup → 500'.
+    """
+    try:
+        need_init = not DB_PATH.exists()
+        if not need_init:
+            try:
+                c = sqlite3.connect(DB_PATH)
+                c.execute("SELECT 1 FROM users LIMIT 1")
+                c.close()
+            except sqlite3.DatabaseError:
+                need_init = True
+        if need_init:
+            init_db()
+    except Exception as exc:  # never let import crash the worker
+        import logging
+        logging.getLogger(__name__).warning("DB auto-init skipped: %s", exc)
+
+
+# Initialise immediately at import time (covers gunicorn / WSGI on Railway).
+_ensure_db()
+
+
+if __name__ == "__main__":
+    _ensure_db()
+    port = int(os.environ.get("PORT", "5000"))
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host="0.0.0.0", port=port, debug=debug)
