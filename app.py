@@ -1874,3 +1874,235 @@ def account_reorder(order_id):
     return redirect(url_for("cart"))
 
 
+@app.route("/account/profile", methods=["GET", "POST"])
+@login_required
+def account_profile():
+    u = current_user()
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        current_pw = request.form.get("current_password", "")
+        new_pw = request.form.get("new_password", "")
+        if not full_name:
+            flash("Full name is required.", "error")
+            return redirect(url_for("account_profile"))
+        get_db().execute("UPDATE users SET full_name=?, phone=? WHERE id=?",
+                         (full_name, phone, u["id"]))
+        if new_pw:
+            if not check_password_hash(u["password_hash"], current_pw):
+                flash("Current password is incorrect.", "error")
+                return redirect(url_for("account_profile"))
+            if len(new_pw) < 8:
+                flash("New password must be at least 8 characters.", "error")
+                return redirect(url_for("account_profile"))
+            get_db().execute("UPDATE users SET password_hash=? WHERE id=?",
+                             (generate_password_hash(new_pw), u["id"]))
+        get_db().commit()
+        flash("Profile updated.", "success")
+        return redirect(url_for("account_profile"))
+    return render_template("account/profile.html", u=u)
+
+
+@app.route("/account/saved-smoothies")
+@login_required
+def account_saved():
+    u = current_user()
+    saved = get_db().execute(
+        "SELECT * FROM custom_smoothies WHERE user_id=? ORDER BY created_at DESC", (u["id"],)
+    ).fetchall()
+    return render_template("account/saved_smoothies.html", saved=saved)
+
+
+@app.route("/account/saved-smoothies/<int:sid>/add-to-cart", methods=["POST"])
+@login_required
+def account_saved_add(sid):
+    u = current_user()
+    s = get_db().execute("SELECT * FROM custom_smoothies WHERE id=? AND user_id=?", (sid, u["id"])).fetchone()
+    if not s:
+        abort(404)
+    cart = get_cart()
+    cart["region"] = current_region()
+    config = json.loads(s["config_json"])
+    # Re-evaluate names from option ids
+    ids = []
+    for k in ("cup_size", "fruits", "base", "sweeteners", "addons", "boosters"):
+        v = config.get(k)
+        if isinstance(v, list): ids.extend(v)
+        elif v: ids.append(v)
+    placeholders = ",".join("?" for _ in ids)
+    rows = get_db().execute(
+        f"SELECT name, option_type FROM builder_options WHERE id IN ({placeholders})", ids
+    ).fetchall() if ids else []
+    grouped = {}
+    for r in rows:
+        grouped.setdefault(r["option_type"], []).append(r["name"])
+    meta = " · ".join(f"{k.replace('_',' ').title()}: {', '.join(v)}" for k, v in grouped.items())
+    cart["items"].append({
+        "kind": "custom",
+        "name": s["name"],
+        "image": url_for("static", filename="img/custom-cup.svg"),
+        "meta": meta,
+        "unit_price": s["price"],
+        "quantity": 1,
+        "custom_smoothie_id": s["id"],
+    })
+    session.modified = True
+    flash(f"Added '{s['name']}' to cart.", "success")
+    return redirect(url_for("cart"))
+
+
+@app.route("/account/saved-smoothies/<int:sid>/delete", methods=["POST"])
+@login_required
+def account_saved_delete(sid):
+    u = current_user()
+    get_db().execute("DELETE FROM custom_smoothies WHERE id=? AND user_id=?", (sid, u["id"]))
+    get_db().commit()
+    flash("Saved smoothie removed.", "info")
+    return redirect(url_for("account_saved"))
+
+
+@app.route("/account/addresses", methods=["GET", "POST"])
+@login_required
+def account_addresses():
+    u = current_user()
+    if request.method == "POST":
+        label = request.form.get("label", "Home").strip()
+        full_name = request.form.get("full_name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        street = request.form.get("street", "").strip()
+        city = request.form.get("city", "").strip()
+        state = request.form.get("state", "").strip()
+        country = request.form.get("country", "").strip()
+        postal = request.form.get("postal_code", "").strip()
+        if not (full_name and phone and street and city and country):
+            flash("Please complete all required address fields.", "error")
+            return redirect(url_for("account_addresses"))
+        get_db().execute("""INSERT INTO addresses (user_id, label, full_name, phone, street, city, state, country, postal_code)
+            VALUES (?,?,?,?,?,?,?,?,?)""",
+            (u["id"], label, full_name, phone, street, city, state, country, postal))
+        get_db().commit()
+        flash("Address saved.", "success")
+        return redirect(url_for("account_addresses"))
+    addresses = get_db().execute(
+        "SELECT * FROM addresses WHERE user_id=? ORDER BY is_default DESC, created_at DESC", (u["id"],)
+    ).fetchall()
+    return render_template("account/addresses.html", addresses=addresses)
+
+
+@app.route("/account/addresses/<int:aid>/delete", methods=["POST"])
+@login_required
+def account_address_delete(aid):
+    u = current_user()
+    get_db().execute("DELETE FROM addresses WHERE id=? AND user_id=?", (aid, u["id"]))
+    get_db().commit()
+    flash("Address removed.", "info")
+    return redirect(url_for("account_addresses"))
+
+
+@app.route("/account/notifications")
+@login_required
+def account_notifications():
+    u = current_user()
+    notifs = get_db().execute(
+        "SELECT * FROM notifications WHERE user_id=? AND audience='user' ORDER BY created_at DESC LIMIT 100",
+        (u["id"],)
+    ).fetchall()
+    get_db().execute(
+        "UPDATE notifications SET is_read=1 WHERE user_id=? AND audience='user' AND is_read=0", (u["id"],)
+    )
+    get_db().commit()
+    return render_template("account/notifications.html", notifs=notifs)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FAVORITES / WISHLIST
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/account/favorites")
+@login_required
+def account_favorites():
+    u = current_user()
+    region = current_region() or u["region"] or "MU"
+    avail = availability_field_for(region)
+    favs = get_db().execute(f"""
+        SELECT p.*, c.name AS category_name, f.created_at AS faved_at
+        FROM favorites f
+        JOIN products p ON p.id = f.product_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE f.user_id=? AND p.is_active=1
+        ORDER BY f.created_at DESC
+    """, (u["id"],)).fetchall()
+    return render_template("account/favorites.html", favorites=favs, region=region)
+
+
+@app.route("/favorites/toggle/<int:pid>", methods=["POST"])
+@login_required
+def favorite_toggle(pid):
+    u = current_user()
+    db = get_db()
+    p = db.execute("SELECT id FROM products WHERE id=? AND is_active=1", (pid,)).fetchone()
+    if not p:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(ok=False, error="not_found"), 404
+        flash("Product not found.", "error")
+        return redirect(request.referrer or url_for("shop"))
+    existing = db.execute("SELECT id FROM favorites WHERE user_id=? AND product_id=?",
+                          (u["id"], pid)).fetchone()
+    if existing:
+        db.execute("DELETE FROM favorites WHERE id=?", (existing["id"],))
+        action = "removed"
+    else:
+        db.execute("INSERT INTO favorites (user_id, product_id) VALUES (?,?)", (u["id"], pid))
+        action = "added"
+    db.commit()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify(ok=True, action=action)
+    flash(f"{'Added to' if action == 'added' else 'Removed from'} your favorites.", "success")
+    return redirect(request.referrer or url_for("shop"))
+
+
+@app.context_processor
+def inject_favorites():
+    """Expose a set of favourited product ids to every template for logged-in users."""
+    u = current_user()
+    if not u:
+        return {"user_favorite_ids": set()}
+    rows = get_db().execute("SELECT product_id FROM favorites WHERE user_id=?", (u["id"],)).fetchall()
+    return {"user_favorite_ids": {r["product_id"] for r in rows}}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRODUCT REVIEWS
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/product/<slug>/review", methods=["POST"])
+def submit_review(slug):
+    db = get_db()
+    p = db.execute("SELECT * FROM products WHERE slug=?", (slug,)).fetchone()
+    if not p: abort(404)
+    u = current_user()
+    rating = int(request.form.get("rating") or 0)
+    title = request.form.get("title", "").strip()[:140]
+    body = request.form.get("body", "").strip()[:2000]
+    author_name = (u["full_name"] if u else request.form.get("author_name", "").strip())[:80]
+    if rating < 1 or rating > 5:
+        flash("Please choose a star rating.", "error")
+        return redirect(url_for("product_detail", slug=slug))
+    if not body or not author_name:
+        flash("Name and review body are required.", "error")
+        return redirect(url_for("product_detail", slug=slug))
+    # If the user has bought this product before, mark as verified
+    verified = 0
+    if u:
+        v = db.execute("""SELECT 1 FROM order_items oi
+                          JOIN orders o ON o.id=oi.order_id
+                          WHERE o.user_id=? AND oi.product_id=? AND o.payment_status='paid' LIMIT 1""",
+                       (u["id"], p["id"])).fetchone()
+        verified = 1 if v else 0
+    db.execute("""INSERT INTO reviews (product_id, user_id, author_name, rating, title, body, is_verified_buyer)
+                  VALUES (?,?,?,?,?,?,?)""",
+               (p["id"], u["id"] if u else None, author_name, rating, title, body, verified))
+    db.commit()
+    flash("Thanks for the review — it's live on the page.", "success")
+    return redirect(url_for("product_detail", slug=slug) + "#reviews")
+
+
+
