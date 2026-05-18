@@ -214,4 +214,58 @@ CREATE TABLE IF NOT EXISTS payments (
     raw_payload TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS blog_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    subtitle TEXT,
+    cover_url TEXT,
+    category TEXT,             -- NUTRITION | LIFESTYLE | RECIPE | WELLNESS
+    author TEXT,
+    content TEXT NOT NULL,
+    read_minutes INTEGER NOT NULL DEFAULT 4,
+    is_published INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,  -- NULL = admin
+    audience TEXT NOT NULL DEFAULT 'user',  -- user | admin
+    title TEXT NOT NULL,
+    body TEXT,
+    link TEXT,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    entity TEXT,
+    entity_id INTEGER,
+    ip_address TEXT,
+    meta TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    region TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS contact_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    subject TEXT,
+    message TEXT NOT NULL,
+    is_handled INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
