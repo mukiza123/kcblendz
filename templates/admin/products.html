@@ -1,0 +1,26 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Products — Admin{% endblock %}
+{% block admin %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="brand text-3xl">Products</h1>
+  <a href="{{ url_for('admin_product_new') }}" class="px-4 py-2 bg-[var(--kc-orange)] text-white rounded-full">+ New product</a>
+</div>
+<div class="bg-white rounded-2xl shadow-sm overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-left opacity-70"><tr><th class="p-3">Name</th><th>Category</th><th>MUR</th><th>NGN</th><th>USD</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for p in products %}
+        <tr class="border-t">
+          <td class="p-3"><strong>{{ p.name }}</strong><br><span class="text-xs opacity-60">/{{ p.slug }}</span></td>
+          <td>{{ p.category_name or '—' }}</td>
+          <td>{{ p.price_mur or '—' }}</td>
+          <td>{{ p.price_ngn or '—' }}</td>
+          <td>{{ p.price_usd or '—' }}</td>
+          <td>{% if p.is_active %}<span class="text-green-600">active</span>{% else %}<span class="opacity-60">archived</span>{% endif %}</td>
+          <td><a href="{{ url_for('admin_product_edit', pid=p.id) }}" class="text-[var(--kc-green)]">Edit</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
