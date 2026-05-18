@@ -20,7 +20,10 @@
     </div>
 
     <div class="relative">
-      <div class="aspect-square rounded-3xl bg-gradient-to-br from-[var(--kc-yellow)] via-[var(--kc-orange)] to-[var(--kc-green)] shadow-2xl"></div>
+      <div class="relative">
+        <div class="absolute -inset-4 bg-gradient-to-br from-[var(--kc-yellow)] to-[var(--kc-orange)] opacity-30 blur-3xl rounded-full"></div>
+        <div class="relative aspect-square rounded-3xl bg-gradient-to-br from-[var(--kc-yellow)] via-[var(--kc-orange)] to-[var(--kc-green)] shadow-2xl flex items-center justify-center text-9xl">🥤</div>
+      </div>
     </div>
   </div>
 </section>
@@ -31,7 +34,7 @@
     ("🚚","Fast delivery","Same-day in Port-Louis, next-day in Lagos."),
     ("🌍","Worldwide","Shelf-stable bottles shipped globally.")
   ] %}
-    <div class="bg-white rounded-2xl p-6 shadow-sm">
+    <div class="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition border border-transparent hover:border-[var(--kc-green)]">
       <div class="text-4xl mb-3">{{ feat[0] }}</div>
       <h3 class="font-bold text-xl mb-2">{{ feat[1] }}</h3>
       <p class="opacity-70">{{ feat[2] }}</p>
