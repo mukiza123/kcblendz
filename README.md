@@ -72,3 +72,47 @@ heroku run flask --app app init-db
 ```bash
 gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 --preload
 ```
+
+## API reference
+
+KCBlendz is mostly server-rendered, but a few JSON endpoints exist for the
+builder and ops tooling.
+
+### `POST /api/builder/price`
+
+Compute the live price of a custom-built smoothie.
+
+Request body (JSON):
+
+```json
+{
+  "cup_size": 1,
+  "base": 2,
+  "fruits": [4, 5],
+  "sweeteners": [],
+  "addons": [9],
+  "boosters": []
+}
+```
+
+Response (JSON):
+
+```json
+{ "price": 285.0, "currency": "MU" }
+```
+
+### `GET /healthz`
+
+Liveness probe — returns `{"status":"ok"}` without touching the DB.
+
+### `GET /readyz`
+
+Readiness probe — runs `SELECT 1`; returns 503 if the DB is unreachable.
+
+### `GET /admin/users/export.csv`
+
+(admin) Streams a CSV of every user account.
+
+### `GET /sitemap.xml`, `GET /robots.txt`
+
+SEO endpoints.
