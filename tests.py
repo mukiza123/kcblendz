@@ -119,5 +119,36 @@ class CardBrandTests(unittest.TestCase):
         self.assertEqual(kc.detect_card_brand("1234567890"), "unknown")
 
 
+
+
+class CardFormValidationTests(unittest.TestCase):
+    def test_form_accepts_valid_payload(self):
+        errors = kc.validate_card_form({
+            "card_number": "4242 4242 4242 4242",
+            "card_name": "Jane Doe",
+            "card_exp": "08/28",
+            "card_cvc": "123",
+        })
+        self.assertEqual(errors, [])
+
+    def test_form_rejects_bad_expiry(self):
+        errors = kc.validate_card_form({
+            "card_number": "4242424242424242",
+            "card_name": "Jane Doe",
+            "card_exp": "13/28",
+            "card_cvc": "123",
+        })
+        self.assertTrue(any("Expiry" in e for e in errors))
+
+    def test_form_rejects_short_cvc(self):
+        errors = kc.validate_card_form({
+            "card_number": "4242424242424242",
+            "card_name": "Jane Doe",
+            "card_exp": "08/28",
+            "card_cvc": "1",
+        })
+        self.assertTrue(any("CVC" in e for e in errors))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
