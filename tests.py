@@ -451,5 +451,42 @@ class AdminDashboardTests(_BaseDB):
         self.assertIn("text/csv", r.headers.get("Content-Type", ""))
 
 
+
+
+class AdminProductCRUDTests(_BaseDB):
+    def test_admin_can_create_product(self):
+        _login(self.client, "admin@kcblendz.com", "Admin1234")
+        tok = _csrf(self.client, "/admin/products/new")
+        r = self.client.post("/admin/products/new", data={
+            "_csrf": tok, "name": "Greens Goddess", "slug": "greens-goddess",
+            "short_description": "Leafy & lean", "description": "Spinach, apple, ginger.",
+            "ingredients": "spinach, apple, ginger",
+            "category_id": "", "price_mur": "275", "price_ngn": "5500", "price_usd": "8",
+            "is_active": "1", "is_featured": "1",
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        with kc.app.app_context():
+            row = kc.get_db().execute(
+                "SELECT name FROM products WHERE slug = 'greens-goddess'"
+            ).fetchone()
+            self.assertIsNotNone(row)
+
+    def test_admin_can_archive_product(self):
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute("INSERT INTO products (slug,name,price_mur,is_active) VALUES (?,?,?,1)",
+                       ("zap", "Zap", 100.0))
+            db.commit()
+            pid = db.execute("SELECT id FROM products WHERE slug='zap'").fetchone()["id"]
+        _login(self.client, "admin@kcblendz.com", "Admin1234")
+        tok = _csrf(self.client, "/admin/products")
+        self.client.post(f"/admin/products/{pid}/delete", data={"_csrf": tok})
+        with kc.app.app_context():
+            row = kc.get_db().execute(
+                "SELECT is_active FROM products WHERE id = ?", (pid,)
+            ).fetchone()
+            self.assertEqual(row["is_active"], 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
