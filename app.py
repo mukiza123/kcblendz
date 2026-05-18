@@ -1317,3 +1317,86 @@ def builder_add_to_cart():
     return redirect(url_for("cart"))
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CART & CHECKOUT
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/cart/add", methods=["POST"])
+@region_required
+def cart_add():
+    region = current_region()
+    price_col = price_field_for(region)
+    avail = availability_field_for(region)
+    pid = int(request.form["product_id"])
+    qty = max(1, int(request.form.get("quantity", 1)))
+    p = get_db().execute(
+        f"SELECT * FROM products WHERE id=? AND is_active=1 AND {avail}=1", (pid,)
+    ).fetchone()
+    if not p:
+        flash("This product is not available in your store.", "error")
+        return redirect(request.referrer or url_for("shop"))
+    cart = get_cart()
+    cart["region"] = region
+    # merge with existing same-product line
+    for item in cart["items"]:
+        if item.get("kind") == "product" and item.get("product_id") == p["id"]:
+            item["quantity"] = int(item["quantity"]) + qty
+            session.modified = True
+            flash(f"Added another {p['name']} to your cart.", "success")
+            return redirect(request.referrer or url_for("cart"))
+    cart["items"].append({
+        "kind": "product",
+        "product_id": p["id"],
+        "name": p["name"],
+        "image": p["image_url"],
+        "meta": p["ingredients"] or "",
+        "unit_price": p[price_col],
+        "quantity": qty,
+    })
+    session.modified = True
+    flash(f"{p['name']} added to cart.", "success")
+    return redirect(request.referrer or url_for("cart"))
+
+
+@app.route("/cart")
+@region_required
+def cart():
+    cart_clear_if_region_change()
+    return render_template("public/cart.html", cart=get_cart(),
+                           subtotal=cart_subtotal())
+
+
+@app.route("/cart/update", methods=["POST"])
+@region_required
+def cart_update():
+    idx = int(request.form["index"])
+    qty = int(request.form.get("quantity", 1))
+    cart = get_cart()
+    if 0 <= idx < len(cart["items"]):
+        if qty <= 0:
+            cart["items"].pop(idx)
+        else:
+            cart["items"][idx]["quantity"] = qty
+        session.modified = True
+    return redirect(url_for("cart"))
+
+
+@app.route("/cart/remove", methods=["POST"])
+@region_required
+def cart_remove():
+    idx = int(request.form["index"])
+    cart = get_cart()
+    if 0 <= idx < len(cart["items"]):
+        cart["items"].pop(idx)
+        session.modified = True
+    return redirect(url_for("cart"))
+
+
+def delivery_fee_for(region, city=None):
+    if region == "NG":
+        return 1500.0  # Pamplemousses zone — admin can override per-zone in production
+    if region == "MU":
+        return 80.0
+    if region == "GL":
+        return 12.99
+    return 0.0
+
