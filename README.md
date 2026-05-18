@@ -305,3 +305,10 @@ pip install gunicorn
 gunicorn -w 4 -b 0.0.0.0:8000 app:app
 ```
 
+### Railway / Render / Fly.io
+
+- **Start command:** `gunicorn -w 2 -b 0.0.0.0:$PORT app:app`
+- **Environment variables:** set `KCB_SECRET` to a long random string.
+- **Persistent volume:** mount one for `static/uploads/` and (if you want the SQLite DB to survive redeploys) `kcblendz.db`. Otherwise the database self-heals on first request — but customer-created data is lost on each redeploy.
+- **Database bootstrap is automatic** — `init_db()` runs on module import and again as a `before_request` safety check, so there is no separate migration step.
+
