@@ -21,3 +21,16 @@ This repository delivers a complete, demo-ready website covering every part of t
 11. [Deployment](#deployment)
 12. [Going live with real payments](#going-live-with-real-payments)
 
+## What's inside
+
+- A public storefront with three regions and full currency switching
+- A custom smoothie builder with a live video preview of ingredients being prepared
+- A complete cart, secure card-entry payment flow, and bank-transfer fallback
+- Product reviews with verified-buyer badges
+- Favorites / wishlist for logged-in customers
+- A Wellness Hub blog with five long-form, original articles
+- Customer dashboards (orders, reorder, saved blends, addresses, favorites, profile)
+- A full administrator panel (products, orders, customers, reports, blog CMS, builder config, profile, messages, notifications)
+- A 53-test unit-test suite covering business logic, security and seed integrity
+- A complete sprint board plan and a 125-commit GitHub history plan in the `docs/` folder
+
