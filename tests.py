@@ -350,3 +350,25 @@ class FavoritesAndReviewsTests(unittest.TestCase):
                              headers={"X-Requested-With": "XMLHttpRequest"})
         self.assertEqual(r.status_code, 404)
 
+    def test_review_submission_succeeds(self):
+        tok = _csrf(self.client, f"/product/{self.pslug}")
+        r = self.client.post(f"/product/{self.pslug}/review", data={
+            "_csrf": tok, "rating": "5", "title": "Loved it",
+            "body": "Truly excellent — would buy again.",
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("#reviews", r.headers["Location"])
+        # Verify it appears on product page
+        r = self.client.get(f"/product/{self.pslug}")
+        self.assertIn("Loved it", r.get_data(as_text=True))
+
+    def test_review_rejects_missing_rating(self):
+        tok = _csrf(self.client, f"/product/{self.pslug}")
+        r = self.client.post(f"/product/{self.pslug}/review", data={
+            "_csrf": tok, "rating": "0", "body": "anything",
+        }, follow_redirects=True)
+        self.assertIn("rating", r.get_data(as_text=True).lower())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Custom smoothie image helper
