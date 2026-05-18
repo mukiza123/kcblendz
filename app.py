@@ -1004,3 +1004,8 @@ def csrf_token():
     return session["_csrf"]
 
 
+def check_csrf():
+    tok = request.form.get("_csrf") or request.headers.get("X-CSRF-Token")
+    return tok and hmac.compare_digest(tok, session.get("_csrf", ""))
+
+
