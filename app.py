@@ -250,6 +250,36 @@ def cli_init_db():
     init_db()
     print("Database initialized.")
 
+
+@app.route("/shop")
+def shop():
+    db = get_db()
+    q = (request.args.get("q") or "").strip()
+    cat = request.args.get("category") or ""
+    sort = request.args.get("sort", "new")
+
+    sql = ["SELECT p.*, c.slug AS category_slug FROM products p",
+           "LEFT JOIN categories c ON c.id = p.category_id",
+           "WHERE p.is_active = 1"]
+    params = []
+    if q:
+        sql.append("AND (p.name LIKE ? OR p.tags LIKE ? OR p.description LIKE ?)")
+        like = f"%{q}%"
+        params += [like, like, like]
+    if cat:
+        sql.append("AND c.slug = ?")
+        params.append(cat)
+    sql.append({
+        "price-asc": "ORDER BY COALESCE(p.price_mur, p.price_ngn, p.price_usd) ASC",
+        "price-desc": "ORDER BY COALESCE(p.price_mur, p.price_ngn, p.price_usd) DESC",
+        "new": "ORDER BY p.created_at DESC",
+    }.get(sort, "ORDER BY p.created_at DESC"))
+
+    products = db.execute(" ".join(sql), params).fetchall()
+    cats = db.execute("SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order").fetchall()
+    return render_template("public/shop.html",
+                           products=products, categories=cats, q=q, cat=cat, sort=sort)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
