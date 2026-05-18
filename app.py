@@ -937,3 +937,13 @@ def login_required(view):
     return wrapper
 
 
+def admin_required(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        u = current_user()
+        if not u or u["role"] != "admin":
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapper
+
+
