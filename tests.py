@@ -45,3 +45,14 @@ def _csrf(client, route="/login"):
     with client.session_transaction() as s:
         return s.get("_csrf")
 
+
+def _login(client, email, password):
+    """Log in and return the session uid (or None on failure)."""
+    tok = _csrf(client, "/login")
+    r = client.post("/login", data={"_csrf": tok, "email": email, "password": password},
+                    follow_redirects=False)
+    with client.session_transaction() as s:
+        return s.get("uid"), r.status_code
+
+
+# ─────────────────────────────────────────────────────────────────────────────
