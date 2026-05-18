@@ -146,3 +146,15 @@ class PublicRouteTests(unittest.TestCase):
     def test_builder_returns_200(self):
         r = self.client.get("/builder")
         self.assertEqual(r.status_code, 200)
+
+    def test_wellness_returns_200(self):
+        r = self.client.get("/wellness")
+        self.assertEqual(r.status_code, 200)
+
+    def test_all_static_pages_render(self):
+        for path in ("/about", "/contact", "/faq", "/privacy", "/terms",
+                     "/refund-policy", "/shipping-policy"):
+            with self.subTest(path=path):
+                r = self.client.get(path)
+                self.assertEqual(r.status_code, 200, f"{path} -> {r.status_code}")
+
