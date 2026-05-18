@@ -245,6 +245,18 @@ from security.headers import security_headers as _sec_headers
 def _apply_security_headers(resp):
     return _sec_headers(resp)
 
+
+@app.before_request
+def _check_user_status():
+    uid = session.get("uid")
+    if uid:
+        try:
+            row = get_db().execute("SELECT status FROM users WHERE id = ?", (uid,)).fetchone()
+            if row and row["status"] != "active":
+                session.clear()
+        except Exception:
+            pass
+
 # ─── DB init / seed ────────────────────────────────────────────────────────
 from security.passwords import hash_password
 
