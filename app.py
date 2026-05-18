@@ -366,6 +366,67 @@ def api_builder_price():
     total = round(sum((r[field] or 0) for r in rows), 2)
     return jsonify({"price": total, "currency": region})
 
+
+# ─── Cart ──────────────────────────────────────────────────────────────────
+def _get_cart():
+    return session.setdefault("cart", [])
+
+
+@app.route("/cart")
+def cart():
+    db = get_db()
+    items = []
+    subtotal = 0.0
+    for ln in _get_cart():
+        if ln.get("type") == "product":
+            p = db.execute("SELECT * FROM products WHERE id = ?", (ln["product_id"],)).fetchone()
+            if not p:
+                continue
+            price = p["price_mur"] or p["price_ngn"] or p["price_usd"] or 0
+            items.append({"name": p["name"], "qty": ln["qty"], "unit": price,
+                          "line": price * ln["qty"], "key": ln["key"]})
+            subtotal += price * ln["qty"]
+        else:
+            items.append({"name": ln["name"], "qty": ln["qty"], "unit": ln["price"],
+                          "line": ln["price"] * ln["qty"], "key": ln["key"]})
+            subtotal += ln["price"] * ln["qty"]
+    return render_template("public/cart.html", items=items, subtotal=round(subtotal, 2))
+
+
+@app.route("/cart/add", methods=["POST"])
+def cart_add():
+    pid = int(request.form.get("product_id") or 0)
+    qty = max(1, int(request.form.get("qty") or 1))
+    cart_l = _get_cart()
+    for ln in cart_l:
+        if ln.get("product_id") == pid:
+            ln["qty"] += qty
+            session.modified = True
+            return redirect(url_for("cart"))
+    cart_l.append({"key": secrets.token_hex(8), "type": "product", "product_id": pid, "qty": qty})
+    session.modified = True
+    return redirect(url_for("cart"))
+
+
+@app.route("/cart/update", methods=["POST"])
+def cart_update():
+    key = request.form.get("key")
+    qty = max(0, int(request.form.get("qty") or 0))
+    session["cart"] = [ln for ln in _get_cart() if ln["key"] != key or qty > 0]
+    for ln in session["cart"]:
+        if ln["key"] == key:
+            ln["qty"] = qty
+    session.modified = True
+    return redirect(url_for("cart"))
+
+
+@app.route("/cart/remove", methods=["POST"])
+def cart_remove():
+    key = request.form.get("key")
+    session["cart"] = [ln for ln in _get_cart() if ln["key"] != key]
+    session.modified = True
+    return redirect(url_for("cart"))
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
