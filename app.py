@@ -1718,3 +1718,25 @@ def newsletter_subscribe():
 
 # ─────────────────────────────────────────────────────────────────────────────
 # AUTHENTICATION
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        u = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if not u or u["status"] != "active" or not check_password_hash(u["password_hash"], password):
+            flash("Invalid email or password.", "error")
+            return render_template("auth/login.html", email=email)
+        session.clear()
+        session["uid"] = u["id"]
+        session.permanent = True
+        get_db().execute("UPDATE users SET last_login_at=datetime('now') WHERE id=?", (u["id"],))
+        get_db().commit()
+        audit("auth.login", "user", u["id"])
+        flash(f"Welcome back, {u['full_name'].split()[0]}.", "success")
+        nxt = request.args.get("next") or (url_for("admin_dashboard") if u["role"] == "admin" else url_for("account_dashboard"))
+        return redirect(nxt)
+    return render_template("auth/login.html", email="")
+
+
