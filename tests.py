@@ -23,6 +23,36 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import app as kc  # noqa: E402
 
 
+
+
+def _fresh_db():
+    """Re-create and re-seed the test database from scratch."""
+    if kc.DB_PATH.exists():
+        kc.DB_PATH.unlink()
+    # init_db will be added later; tolerate missing for now
+    if hasattr(kc, "init_db"):
+        with kc.app.app_context():
+            kc.init_db()
+
+
+class _BaseDB(unittest.TestCase):
+    def setUp(self):
+        _fresh_db()
+        # Reset any module-level rate-limit state from previous tests so
+        # repeated login()s don't trip the limiter across cases.
+        try:
+            from security import ratelimit as _rl
+            with _rl._lock:
+                _rl._buckets.clear()
+        except Exception:
+            pass
+        self.client = kc.app.test_client()
+
+    def tearDown(self):
+        if kc.DB_PATH.exists():
+            kc.DB_PATH.unlink()
+
+
 class SmokeTests(unittest.TestCase):
     def test_root_responds(self):
         with kc.app.test_client() as c:
