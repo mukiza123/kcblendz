@@ -34,3 +34,29 @@ This repository delivers a complete, demo-ready website covering every part of t
 - A 53-test unit-test suite covering business logic, security and seed integrity
 - A complete sprint board plan and a 125-commit GitHub history plan in the `docs/` folder
 
+## Quick start
+
+```bash
+# 1. Unpack and enter the project
+unzip kcblendz.zip && cd kcblendz
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Run
+python app.py
+```
+
+Open <http://127.0.0.1:5000>. The database is created on first import (so gunicorn, Railway and other WSGI hosts all boot cleanly without a separate migration step). Seed data is inserted only if the database is empty.
+
+On first boot the seed creates:
+
+- 1 admin user
+- 12 product categories
+- 57 real products from the KCBlendz catalog
+- 37 builder options (cup sizes, fruits, bases, sweeteners, add-ons, boosters)
+- 5 long-form Wellness Hub articles
+- 54 sample customer reviews so the UI is never empty
+
+You will be redirected to the region picker — choose **Mauritius**, **Nigeria**, or **Global** to begin shopping.
+
