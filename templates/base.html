@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}KCBlendz — Nourishing Lives, Inspiring Wellness{% endblock %}</title>
+<meta name="description" content="{% block description %}Premium smoothies, juices and wellness drinks made from real fruit.{% endblock %}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo.png') }}">
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+<style>
+  :root {
+    --kc-green:       #2E8B57;
+    --kc-green-deep:  #1F6E43;
+    --kc-orange:      #F7941D;
+    --kc-yellow:      #FBC02D;
+    --kc-cream:       #FFF8E7;
+    --kc-bg:          #F5F9F2;
+    --kc-dark:        #1B3A2F;
+  }
+  html, body { background: var(--kc-bg); }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; color: var(--kc-dark); }
+  .brand { font-family: 'Righteous', cursive; color: var(--kc-green); }
+</style>
+{% block head_extra %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col">
+  {% block nav %}{% endblock %}
+  <main class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+  {% block footer %}{% endblock %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>
