@@ -246,3 +246,24 @@ Strictly separated from the customer experience. Admins never see customer-only 
 | Messages | Contact-form inbox with handled flag |
 | Notifications | System events and admin-targeted alerts |
 
+## Brand system
+
+Every colour comes from the KCBlendz logo:
+
+```css
+--kc-green:       #2E8B57   /* The mint/sea green of the KCBlendz wordmark */
+--kc-green-deep:  #1F6E43   /* Hover and dark accents */
+--kc-orange:      #F7941D   /* The warm orange of the cup illustration */
+--kc-orange-deep: #D97706
+--kc-yellow:      #FBC02D   /* The outer ring + phone number on the logo */
+--kc-cream:       #FFF8E7   /* Warm background for callouts */
+--kc-bg:          #F5F9F2   /* Page background */
+--kc-dark:        #1B3A2F   /* Primary text — no plain black */
+```
+
+Older CSS tokens (`--fuchsia`, `--lime`, `--sky`, `--purple`) are aliased to the brand palette so older template fragments still render in the correct colours without modification.
+
+**Typography**: Plus Jakarta Sans (body, weights 400–800) + Righteous (display, `.brand` class).
+**Iconography**: 100 percent inline SVG. No emojis anywhere. No icon font dependency.
+**Visual identity**: 2 px brand-dark borders, sharp drop-shadows (`shadow-[4px_4px_0_var(--kc-dark)]`), rounded-2xl cards, generous whitespace.
+
