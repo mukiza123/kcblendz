@@ -193,6 +193,23 @@ def close_db(_):
 
 
 
+
+# ─── CSRF middleware ───────────────────────────────────────────────────────
+from security.csrf import csrf_token as _gen_csrf, check_csrf as _check_csrf
+
+
+@app.before_request
+def _enforce_csrf():
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        submitted = request.form.get("_csrf") or request.headers.get("X-CSRF-Token")
+        if not _check_csrf(submitted or ""):
+            abort(400, "CSRF check failed.")
+
+
+@app.context_processor
+def _inject_csrf():
+    return {"csrf_token": _gen_csrf}
+
 # ─── DB init / seed ────────────────────────────────────────────────────────
 from security.passwords import hash_password
 
