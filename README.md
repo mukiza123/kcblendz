@@ -294,3 +294,14 @@ The entire backend lives in **one file** (`app.py`) by design: routes, schema, s
 - **File uploads** — extension allowlist (`png, jpg, jpeg, gif, webp`), 8 MB cap, secure filename.
 - **Admin separation** — admins see an admin-only dropdown (no favorites heart, no cart icon, no customer "My Orders"); the sandbox test cards on the payment page are gated behind `current_user().role == 'admin'`.
 
+## Deployment
+
+The project is designed for one-command deployment to any modern PaaS.
+
+### Local production preview with Gunicorn
+
+```bash
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:8000 app:app
+```
+
