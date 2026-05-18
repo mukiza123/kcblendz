@@ -1064,3 +1064,20 @@ def cart_clear_if_region_change():
         session.modified = True
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CONTEXT PROCESSORS
+# ─────────────────────────────────────────────────────────────────────────────
+@app.context_processor
+def inject_globals():
+    return dict(
+        current_user=current_user,
+        current_region=current_region,
+        REGIONS=REGIONS,
+        cart_count=cart_count,
+        format_money=format_money,
+        csrf_token=csrf_token,
+        current_year=datetime.now().year,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
