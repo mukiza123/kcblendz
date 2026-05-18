@@ -1046,6 +1046,28 @@ def forgot_password():
         return redirect(url_for("login"))
     return render_template("auth/forgot.html")
 
+
+@app.route("/admin/users/<int:uid>/status", methods=["POST"])
+@admin_required
+def admin_user_status(uid):
+    from security.audit import audit
+    new_status = request.form.get("status")
+    if new_status not in ("active", "suspended", "deleted"):
+        abort(400)
+    db = get_db()
+    target = db.execute("SELECT id, email, status FROM users WHERE id = ?", (uid,)).fetchone()
+    if not target:
+        abort(404)
+    if target["id"] == session.get("uid"):
+        flash("You cannot change your own status.", "error")
+        return redirect(url_for("admin_user_detail", uid=uid))
+    db.execute("UPDATE users SET status = ? WHERE id = ?", (new_status, uid))
+    db.commit()
+    audit(db, "user.status_change", entity="user", entity_id=uid,
+          meta={"from": target["status"], "to": new_status, "email": target["email"]})
+    flash(f"User marked {new_status}.", "success")
+    return redirect(url_for("admin_user_detail", uid=uid))
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
