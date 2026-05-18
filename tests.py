@@ -325,5 +325,41 @@ class CartAddTests(_BaseDB):
         self.assertEqual(cart[0]["qty"], 2)
 
 
+
+
+class CartUpdateRemoveTests(_BaseDB):
+    def _seed_and_add(self):
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute(
+                "INSERT INTO products (slug, name, price_mur, is_active) VALUES (?, ?, ?, 1)",
+                ("test-blend", "Test Blend", 100.0)
+            )
+            db.commit()
+            pid = db.execute("SELECT id FROM products WHERE slug='test-blend'").fetchone()["id"]
+        tok = _csrf(self.client, "/")
+        self.client.post("/cart/add", data={"_csrf": tok, "product_id": str(pid), "qty": "1"},
+                         follow_redirects=False)
+        with self.client.session_transaction() as ses:
+            return ses.get("cart", [])[0]["key"]
+
+    def test_cart_update_changes_qty(self):
+        key = self._seed_and_add()
+        tok = _csrf(self.client, "/")
+        self.client.post("/cart/update", data={"_csrf": tok, "key": key, "qty": "5"},
+                         follow_redirects=False)
+        with self.client.session_transaction() as ses:
+            cart = ses.get("cart", [])
+        self.assertEqual(cart[0]["qty"], 5)
+
+    def test_cart_remove_drops_line(self):
+        key = self._seed_and_add()
+        tok = _csrf(self.client, "/")
+        self.client.post("/cart/remove", data={"_csrf": tok, "key": key}, follow_redirects=False)
+        with self.client.session_transaction() as ses:
+            cart = ses.get("cart", [])
+        self.assertEqual(cart, [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
