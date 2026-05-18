@@ -100,5 +100,24 @@ class CardValidationTests(unittest.TestCase):
         self.assertFalse(kc.luhn_check(""))
 
 
+
+
+class CardBrandTests(unittest.TestCase):
+    def test_brand_detection_visa(self):
+        self.assertEqual(kc.detect_card_brand("4242424242424242"), "visa")
+
+    def test_brand_detection_mastercard(self):
+        self.assertEqual(kc.detect_card_brand("5555555555554444"), "mastercard")
+
+    def test_brand_detection_amex(self):
+        self.assertEqual(kc.detect_card_brand("378282246310005"), "amex")
+
+    def test_brand_detection_discover(self):
+        self.assertEqual(kc.detect_card_brand("6011111111111117"), "discover")
+
+    def test_brand_detection_unknown(self):
+        self.assertEqual(kc.detect_card_brand("1234567890"), "unknown")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
