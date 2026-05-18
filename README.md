@@ -168,3 +168,41 @@ Three regions with currency, delivery and product-availability differences:
 
 The region is forced on first visit through `/store` and can be changed any time from the navigation. Fresh products are hidden from the Global store automatically.
 
+### Custom smoothie builder with live video preview
+
+The builder displays the real KCBlendz video of ingredients being prepared as the customer makes choices. The four mandatory steps are:
+
+1. Pick a cup size (Regular 400 ml, Large 600 ml, Family 1 L)
+2. Pick 1 to 3 fruits from 12 options (banana, mango, pineapple, strawberry, blueberry, kiwi, watermelon, orange, apple, papaya, avocado, peach)
+3. Choose a base (water, coconut water, almond milk, oat milk, cow's milk, yoghurt)
+4. Optional sweeteners, add-ons (chia, flax, granola, peanut butter, oats, honey) and boosters (whey, plant protein, collagen, spirulina, ginger, turmeric)
+
+Live pricing recalculates on every change via `/api/builder/price`. The cart shows a unique, realistic photo per blend based on the dominant fruit — never the same SVG placeholder for every order.
+
+### Real card-entry payment flow
+
+The payment page collects card details with live brand detection and full validation:
+
+- Live brand recognition as the user types: Visa, Mastercard, Amex, Discover, JCB
+- Luhn checksum on the card number
+- MM/YY format check and expiry-in-the-future check
+- 3 or 4 digit CVV check (4 for Amex)
+- Only the brand and last 4 digits are ever stored — never the full PAN
+- Card number is auto-formatted as the user types (groups of 4, Amex 4-6-5)
+
+Bank transfer is the second option, with mandatory proof upload and region-aware bank details. Proof is verified by an admin within 10 minutes.
+
+### Reviews and ratings
+
+- Star ratings on every product card and detail page
+- Inline submit form on the product page for both logged-in customers and guests
+- A "verified buyer" badge is awarded automatically when the reviewer has a paid order containing the product
+- Sample reviews are seeded across the first dozen products so the UI is never empty
+
+### Favorites and wishlist
+
+- Heart button on every product card and the product detail page
+- Count badge in the navigation
+- Dedicated `/account/favorites` page with one-click add-to-cart
+- The toggle works via both regular POST and XHR (the heart on the product page swaps state without a full page reload)
+
