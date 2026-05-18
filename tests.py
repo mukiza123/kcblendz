@@ -502,3 +502,17 @@ class SeedDataTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(row["email"], "admin@kcblendz.com")
 
+    def test_products_seeded(self):
+        with kc.app.app_context():
+            count = kc.get_db().execute(
+                "SELECT COUNT(*) AS n FROM products WHERE is_active=1"
+            ).fetchone()["n"]
+        self.assertGreaterEqual(count, 50, "Expected at least 50 seeded products")
+
+    def test_blog_posts_seeded(self):
+        with kc.app.app_context():
+            count = kc.get_db().execute(
+                "SELECT COUNT(*) AS n FROM blog_posts WHERE is_published=1"
+            ).fetchone()["n"]
+        self.assertEqual(count, 5)
+
