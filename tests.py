@@ -215,3 +215,37 @@ class AuthTests(unittest.TestCase):
         }, follow_redirects=True)
         self.assertIn("do not match", r.get_data(as_text=True))
 
+    def test_register_rejects_short_password(self):
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "full_name": "Short", "email": "short@kc.com",
+            "phone": "+23055554444", "password": "abc",
+        }, follow_redirects=True)
+        self.assertIn("at least 8 characters", r.get_data(as_text=True))
+
+    def test_register_rejects_duplicate_email(self):
+        tok = _csrf(self.client, "/register")
+        self.client.post("/register", data={
+            "_csrf": tok, "full_name": "Dup1", "email": "dup@kc.com",
+            "phone": "+23055555555", "password": "aaaaaaaa",
+        })
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "full_name": "Dup2", "email": "dup@kc.com",
+            "phone": "+23055556666", "password": "aaaaaaaa",
+        }, follow_redirects=True)
+        self.assertIn("already registered", r.get_data(as_text=True))
+
+    def test_admin_login_uses_2026_password(self):
+        uid, status = _login(self.client, "admin@kcblendz.com", "KCBlendz@2026")
+        self.assertEqual(status, 302)
+        self.assertIsNotNone(uid)
+
+    def test_admin_login_rejects_old_password(self):
+        uid, status = _login(self.client, "admin@kcblendz.com", "KCBlendz@2025")
+        self.assertEqual(status, 200)            # re-renders form
+        self.assertIsNone(uid)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Authorization tests — role-based access control
