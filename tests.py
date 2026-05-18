@@ -183,5 +183,21 @@ class RegistrationTests(_BaseDB):
         self.assertEqual(r.status_code, 200)
 
 
+
+
+class LoginTests(_BaseDB):
+    def test_admin_login_succeeds(self):
+        uid, status = _login(self.client, "admin@kcblendz.com", "Admin1234")
+        self.assertIsNotNone(uid)
+
+    def test_login_fails_for_unknown_email(self):
+        uid, status = _login(self.client, "ghost@nowhere.com", "x")
+        self.assertIsNone(uid)
+
+    def test_login_fails_for_wrong_password(self):
+        uid, status = _login(self.client, "admin@kcblendz.com", "WrongPass")
+        self.assertIsNone(uid)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
