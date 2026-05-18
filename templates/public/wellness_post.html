@@ -1,9 +1,0 @@
-{% extends "base.html" %}
-{% block title %}{{ post.title }} — KCBlendz Wellness{% endblock %}
-{% block content %}
-<article class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-  <p class="text-sm uppercase opacity-60 mb-2">{{ post.created_at[:10] }}</p>
-  <h1 class="brand text-4xl mb-6">{{ post.title }}</h1>
-  <div class="prose max-w-none opacity-90">{{ post.body|mdinline }}</div>
-</article>
-{% endblock %}
