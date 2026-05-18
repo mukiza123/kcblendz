@@ -179,3 +179,39 @@ class PublicRouteTests(unittest.TestCase):
 # ─────────────────────────────────────────────────────────────────────────────
 # Authentication tests — signup bug regression + login flows
 # ─────────────────────────────────────────────────────────────────────────────
+class AuthTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _fresh_db()
+
+    def setUp(self):
+        self.client = kc.app.test_client()
+        with self.client.session_transaction() as s:
+            s["region"] = "MU"
+
+    def test_register_with_single_password_succeeds(self):
+        """Regression: previously this said 'passwords don't match' incorrectly."""
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "full_name": "Single Pw", "email": "single@kc.com",
+            "phone": "+23055551111", "password": "aaaaaaaa",
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/account", r.headers["Location"])
+
+    def test_register_with_matching_confirm_succeeds(self):
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "full_name": "Match", "email": "match@kc.com",
+            "phone": "+23055552222", "password": "bbbbbbbb", "confirm": "bbbbbbbb",
+        }, follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+
+    def test_register_with_mismatched_confirm_fails(self):
+        tok = _csrf(self.client, "/register")
+        r = self.client.post("/register", data={
+            "_csrf": tok, "full_name": "Bad", "email": "bad@kc.com",
+            "phone": "+23055553333", "password": "cccccccc", "confirm": "different",
+        }, follow_redirects=True)
+        self.assertIn("do not match", r.get_data(as_text=True))
+
