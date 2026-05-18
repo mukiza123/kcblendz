@@ -408,3 +408,14 @@ class RegionHelperTests(unittest.TestCase):
         self.assertEqual(kc.currency_for_region("MU"), "MUR")
         self.assertEqual(kc.currency_for_region("GL"), "USD")
 
+    def test_format_money_handles_none(self):
+        self.assertEqual(kc.format_money(None, "MU"), "—")
+
+    def test_format_money_includes_symbol(self):
+        self.assertIn("Rs", kc.format_money(100, "MU"))
+        self.assertIn("₦", kc.format_money(100, "NG"))
+        self.assertIn("$", kc.format_money(100, "GL"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cart & order flow
