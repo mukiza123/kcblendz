@@ -1036,6 +1036,16 @@ def _err_404(e): return render_template("public/error.html"), 404
 @app.errorhandler(500)
 def _err_500(e): return render_template("public/error.html"), 500
 
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        # We deliberately do not reveal whether the address exists.
+        flash("If that email is registered, we've sent reset instructions.", "success")
+        return redirect(url_for("login"))
+    return render_template("auth/forgot.html")
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
