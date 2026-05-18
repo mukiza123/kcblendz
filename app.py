@@ -721,6 +721,28 @@ def account_reorder(order_id):
     flash("Items added to cart.", "success")
     return redirect(url_for("cart"))
 
+
+# ─── Admin ─────────────────────────────────────────────────────────────────
+from security.decorators import admin_required
+
+
+@app.route("/admin")
+@admin_required
+def admin_dashboard():
+    db = get_db()
+    kpis = {
+        "users": db.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"],
+        "products": db.execute("SELECT COUNT(*) AS n FROM products WHERE is_active = 1").fetchone()["n"],
+        "orders": db.execute("SELECT COUNT(*) AS n FROM orders").fetchone()["n"],
+        "revenue": db.execute(
+            "SELECT COALESCE(SUM(total), 0) AS s FROM orders WHERE payment_status = 'paid'"
+        ).fetchone()["s"],
+    }
+    recent_orders = db.execute(
+        "SELECT * FROM orders ORDER BY created_at DESC LIMIT 10"
+    ).fetchall()
+    return render_template("admin/dashboard.html", kpis=kpis, recent_orders=recent_orders)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
