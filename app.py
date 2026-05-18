@@ -927,3 +927,13 @@ def current_user():
     return row
 
 
+def login_required(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if not current_user():
+            flash("Please sign in to continue.", "info")
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapper
+
+
