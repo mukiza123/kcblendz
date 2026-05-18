@@ -60,3 +60,11 @@ On first boot the seed creates:
 
 You will be redirected to the region picker — choose **Mauritius**, **Nigeria**, or **Global** to begin shopping.
 
+## Default admin credentials
+
+```
+URL:       http://127.0.0.1:5000/admin
+Email:     admin@kcblendz.com
+Password:  KCBlendz@2026
+```
+
