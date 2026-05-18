@@ -1,0 +1,22 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Builder config — Admin{% endblock %}
+{% block admin %}
+<h1 class="brand text-3xl mb-6">Builder options</h1>
+<form method="POST" class="bg-white rounded-2xl shadow-sm p-6 grid md:grid-cols-6 gap-3 mb-6">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <select name="option_type" required class="px-3 py-2 border rounded-lg">
+    {% for t in ['cup_size','fruit','base','sweetener','addon','booster'] %}<option>{{ t }}</option>{% endfor %}
+  </select>
+  <input name="name" placeholder="Name" required class="px-3 py-2 border rounded-lg">
+  <input name="price_mur" type="number" step="0.01" placeholder="MUR" class="px-3 py-2 border rounded-lg">
+  <input name="price_ngn" type="number" step="0.01" placeholder="NGN" class="px-3 py-2 border rounded-lg">
+  <input name="price_usd" type="number" step="0.01" placeholder="USD" class="px-3 py-2 border rounded-lg">
+  <button class="px-4 py-2 bg-[var(--kc-orange)] text-white rounded-full">Add</button>
+</form>
+<div class="bg-white rounded-2xl shadow-sm overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-left opacity-70"><tr><th class="p-3">Type</th><th>Name</th><th>MUR</th><th>NGN</th><th>USD</th></tr></thead>
+    <tbody>{% for o in options %}<tr class="border-t"><td class="p-3">{{ o.option_type }}</td><td>{{ o.name }}</td><td>{{ o.price_mur }}</td><td>{{ o.price_ngn }}</td><td>{{ o.price_usd }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endblock %}

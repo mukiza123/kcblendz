@@ -909,6 +909,51 @@ def admin_users_export():
     resp.headers["Content-Disposition"] = "attachment; filename=kcb_users.csv"
     return resp
 
+
+@app.route("/admin/reports")
+@admin_required
+def admin_reports():
+    db = get_db()
+    by_region = db.execute(
+        """SELECT region, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
+           FROM orders WHERE payment_status = 'paid' GROUP BY region"""
+    ).fetchall()
+    top_products = db.execute(
+        """SELECT name_snapshot, SUM(quantity) AS units, SUM(line_total) AS revenue
+           FROM order_items GROUP BY name_snapshot ORDER BY units DESC LIMIT 10"""
+    ).fetchall()
+    daily = db.execute(
+        """SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS n, COALESCE(SUM(total),0) AS rev
+           FROM orders WHERE payment_status = 'paid'
+           GROUP BY day ORDER BY day DESC LIMIT 30"""
+    ).fetchall()
+    return render_template("admin/reports.html",
+                           by_region=by_region, top_products=top_products, daily=daily)
+
+
+@app.route("/admin/builder", methods=["GET", "POST"])
+@admin_required
+def admin_builder():
+    db = get_db()
+    if request.method == "POST":
+        db.execute(
+            """INSERT INTO builder_options (option_type, name, price_mur, price_ngn, price_usd, sort_order)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (request.form.get("option_type"),
+             request.form.get("name"),
+             float(request.form.get("price_mur") or 0),
+             float(request.form.get("price_ngn") or 0),
+             float(request.form.get("price_usd") or 0),
+             int(request.form.get("sort_order") or 0))
+        )
+        db.commit()
+        flash("Option added.", "success")
+        return redirect(url_for("admin_builder"))
+    options = db.execute(
+        "SELECT * FROM builder_options ORDER BY option_type, sort_order"
+    ).fetchall()
+    return render_template("admin/builder_config.html", options=options)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password

@@ -1,0 +1,31 @@
+{% extends "admin/_layout.html" %}
+{% block title %}Reports — Admin{% endblock %}
+{% block admin %}
+<h1 class="brand text-3xl mb-6">Reports</h1>
+
+<div class="grid md:grid-cols-2 gap-6 mb-6">
+  <div class="bg-white rounded-2xl shadow-sm p-6">
+    <h2 class="font-semibold text-lg mb-3">Revenue by region</h2>
+    <table class="w-full text-sm">
+      <thead class="opacity-70 text-left"><tr><th class="py-2">Region</th><th>Orders</th><th>Revenue</th></tr></thead>
+      <tbody>{% for r in by_region %}<tr class="border-t"><td class="py-2">{{ r.region }}</td><td>{{ r.orders }}</td><td>{{ r.revenue }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm p-6">
+    <h2 class="font-semibold text-lg mb-3">Top products</h2>
+    <table class="w-full text-sm">
+      <thead class="opacity-70 text-left"><tr><th class="py-2">Item</th><th>Units</th><th>Revenue</th></tr></thead>
+      <tbody>{% for p in top_products %}<tr class="border-t"><td class="py-2">{{ p.name_snapshot }}</td><td>{{ p.units }}</td><td>{{ p.revenue }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm p-6">
+  <h2 class="font-semibold text-lg mb-3">Daily revenue (last 30 days)</h2>
+  <table class="w-full text-sm">
+    <thead class="opacity-70 text-left"><tr><th class="py-2">Day</th><th>Orders</th><th>Revenue</th></tr></thead>
+    <tbody>{% for d in daily %}<tr class="border-t"><td class="py-2">{{ d.day }}</td><td>{{ d.n }}</td><td>{{ d.rev }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endblock %}
