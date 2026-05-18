@@ -545,6 +545,46 @@ def checkout():
     return render_template("public/checkout.html",
                            subtotal=subtotal, fee=fee, total=total, region=region)
 
+
+@app.route("/payment/<int:order_id>")
+def payment(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    return render_template("public/payment.html", order=order)
+
+
+@app.route("/payment/<int:order_id>/process", methods=["POST"])
+def payment_process(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    method = request.form.get("method") or "card"
+    if method == "card":
+        errs = validate_card_form(request.form)
+        if errs:
+            for e in errs:
+                flash(e, "error")
+            return redirect(url_for("payment", order_id=order_id))
+    db.execute(
+        "UPDATE orders SET payment_method = ?, payment_status = 'paid', order_status = 'confirmed' "
+        "WHERE id = ?", (method, order_id)
+    )
+    db.commit()
+    session.pop("cart", None)
+    return redirect(url_for("order_thanks", order_id=order_id))
+
+
+@app.route("/order/<int:order_id>/thanks")
+def order_thanks(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    return render_template("public/order_thanks.html", order=order)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
