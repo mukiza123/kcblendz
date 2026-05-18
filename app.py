@@ -1129,3 +1129,68 @@ def home():
         categories=categories, posts=posts, price_field=price,
     )
 
+
+@app.route("/shop")
+@region_required
+def shop():
+    db = get_db()
+    region = current_region()
+    avail = availability_field_for(region)
+    price = price_field_for(region)
+    q = request.args.get("q", "").strip()
+    cat_slug = request.args.get("category", "").strip()
+    tag = request.args.get("tag", "").strip()
+    sort = request.args.get("sort", "featured")
+
+    sql = f"""SELECT p.*, c.name AS category_name, c.slug AS category_slug
+              FROM products p LEFT JOIN categories c ON c.id=p.category_id
+              WHERE p.is_active=1 AND p.{avail}=1"""
+    params = []
+    if q:
+        sql += " AND (p.name LIKE ? OR p.ingredients LIKE ? OR p.tags LIKE ?)"
+        params += [f"%{q}%", f"%{q}%", f"%{q}%"]
+    if cat_slug:
+        sql += " AND c.slug=?"
+        params.append(cat_slug)
+    if tag:
+        sql += " AND p.tags LIKE ?"
+        params.append(f"%{tag}%")
+    order = {
+        "price_asc":  f" ORDER BY p.{price} ASC",
+        "price_desc": f" ORDER BY p.{price} DESC",
+        "new":         " ORDER BY p.created_at DESC",
+        "featured":    " ORDER BY p.is_featured DESC, p.is_bestseller DESC, p.id ASC",
+    }.get(sort, " ORDER BY p.is_featured DESC, p.id ASC")
+    sql += order
+
+    products = db.execute(sql, params).fetchall()
+    categories = db.execute("SELECT * FROM categories WHERE is_active=1 ORDER BY sort_order").fetchall()
+    return render_template("public/shop.html",
+                           products=products, categories=categories,
+                           q=q, cat_slug=cat_slug, tag=tag, sort=sort, price_field=price)
+
+
+@app.route("/product/<slug>")
+@region_required
+def product_detail(slug):
+    db = get_db()
+    region = current_region()
+    avail = availability_field_for(region)
+    price = price_field_for(region)
+    p = db.execute(
+        f"""SELECT p.*, c.name AS category_name, c.slug AS category_slug
+            FROM products p LEFT JOIN categories c ON c.id=p.category_id
+            WHERE p.slug=? AND p.is_active=1 AND p.{avail}=1""", (slug,)).fetchone()
+    if not p:
+        abort(404)
+    related = db.execute(
+        f"""SELECT * FROM products WHERE category_id=? AND id<>? AND is_active=1 AND {avail}=1
+            ORDER BY RANDOM() LIMIT 4""", (p["category_id"], p["id"])).fetchall()
+    reviews = db.execute("""SELECT * FROM reviews WHERE product_id=? AND is_approved=1
+                            ORDER BY created_at DESC""", (p["id"],)).fetchall()
+    rating_stats = db.execute("""SELECT COUNT(*) AS n, COALESCE(AVG(rating),0) AS avg_rating
+                                 FROM reviews WHERE product_id=? AND is_approved=1""", (p["id"],)).fetchone()
+    return render_template("public/product.html", p=p, related=related, price_field=price,
+                           reviews=reviews, rating_stats=rating_stats)
+
+
