@@ -36,3 +36,7 @@ jobs:
 
       - name: Smoke import
         run: py -c "import app; print('ok')"
+
+      - name: Run unit tests
+        run: py -m unittest tests.py -v
+
