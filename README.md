@@ -80,3 +80,32 @@ These cards are only revealed on the live payment page to admin users; ordinary 
 
 All numbers are real Luhn-valid test PANs that the live brand-detection JavaScript recognises as you type.
 
+## Running the tests
+
+The project ships with a 53-test unit-test suite (100% passing) covering business logic, route security, role separation, payment validation, custom-blend imagery, and seed data integrity.
+
+```bash
+# All tests, verbose
+python -m unittest tests.py -v
+
+# A specific suite
+python -m unittest tests.CardValidationTests -v
+python -m unittest tests.AuthTests -v
+python -m unittest tests.AuthorizationTests -v
+```
+
+Test coverage summary:
+
+| Suite                    | What it verifies                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `CardValidationTests`    | Luhn checksum, brand detection, expiry/CVV/format validation                                            |
+| `PublicRouteTests`       | Every public page returns 200; guest redirects work; sitemap and robots render                          |
+| `AuthTests`              | Signup with one password, signup with matching/mismatched confirm, duplicate-email rejection, 2026 admin password works |
+| `AuthorizationTests`     | Guests blocked from account and admin; customers blocked from admin; admin can reach every admin page  |
+| `FavoritesAndReviewsTests` | Favorite toggle adds and removes; requires login; 404 on missing product; reviews submit and render    |
+| `CustomBlendImageTests`  | Real-image mapper picks the dominant fruit; falls back safely                                          |
+| `RegionHelperTests`      | Price-field mapping, currency mapping, formatted money output                                          |
+| `CartTests`              | Add product, render cart, handle empty state                                                            |
+| `SandboxVisibilityTests` | Admin sees sandbox test cards on the payment page; guests and customers do not                          |
+| `SeedDataTests`          | Admin user, products, blog posts, reviews and builder options all seed correctly; every product has a real http image URL |
+
