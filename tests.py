@@ -235,5 +235,22 @@ class PasswordHashingTests(unittest.TestCase):
             hash_password("123")
 
 
+
+
+class CSRFTests(_BaseDB):
+    def test_post_without_token_is_rejected(self):
+        r = self.client.post("/login",
+                             data={"email": "admin@kcblendz.com", "password": "Admin1234"},
+                             follow_redirects=False)
+        self.assertEqual(r.status_code, 400)
+
+    def test_post_with_valid_token_passes_csrf(self):
+        tok = _csrf(self.client, "/login")
+        r = self.client.post("/login",
+                             data={"_csrf": tok, "email": "admin@kcblendz.com", "password": "Admin1234"},
+                             follow_redirects=False)
+        self.assertNotEqual(r.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
