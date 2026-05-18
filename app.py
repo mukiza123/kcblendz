@@ -1040,3 +1040,27 @@ def valid_phone(s):
     return bool(s and PHONE_RE.match(s.strip()))
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CART — server-side cart kept in session
+# ─────────────────────────────────────────────────────────────────────────────
+def get_cart():
+    return session.setdefault("cart", {"items": [], "region": None})
+
+
+def cart_count():
+    return sum(int(i.get("quantity", 0)) for i in get_cart().get("items", []))
+
+
+def cart_subtotal():
+    return sum(float(i["unit_price"]) * int(i["quantity"]) for i in get_cart().get("items", []))
+
+
+def cart_clear_if_region_change():
+    cart = get_cart()
+    if cart["region"] != current_region():
+        # store-specific cart per requirement — flush on region switch
+        cart["items"] = []
+        cart["region"] = current_region()
+        session.modified = True
+
+
