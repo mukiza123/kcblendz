@@ -256,6 +256,40 @@ def login():
         flash("Invalid credentials.", "error")
     return render_template("auth/login.html")
 
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    from security.passwords import hash_password
+    from security.validators import valid_email, valid_phone, valid_name, valid_password_strength
+
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        full_name = (request.form.get("full_name") or "").strip()
+        phone = (request.form.get("phone") or "").strip()
+        password = request.form.get("password") or ""
+
+        if not valid_email(email):
+            flash("Invalid email.", "error")
+        elif not valid_name(full_name):
+            flash("Please enter your full name.", "error")
+        elif phone and not valid_phone(phone):
+            flash("Invalid phone number.", "error")
+        elif not valid_password_strength(password):
+            flash("Password must be 8+ chars with letters & digits.", "error")
+        else:
+            db = get_db()
+            if db.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone():
+                flash("Email already registered.", "error")
+            else:
+                db.execute(
+                    "INSERT INTO users (email, password_hash, full_name, phone) VALUES (?, ?, ?, ?)",
+                    (email, hash_password(password), full_name, phone or None)
+                )
+                db.commit()
+                flash("Account created — please sign in.", "success")
+                return redirect(url_for("login"))
+    return render_template("auth/register.html")
+
 @app.route("/")
 def root():
     return "KCBlendz is alive."
