@@ -531,3 +531,25 @@ class SeedDataTests(unittest.TestCase):
         self.assertEqual(types, {"cup_size", "fruit", "base", "sweetener",
                                   "addon", "booster"})
 
+    def test_all_product_images_are_http_urls(self):
+        """Guard against regression where image_url is empty or a placeholder SVG."""
+        with kc.app.app_context():
+            rows = kc.get_db().execute(
+                "SELECT name, image_url FROM products WHERE is_active=1"
+            ).fetchall()
+        for r in rows:
+            with self.subTest(product=r["name"]):
+                self.assertIsNotNone(r["image_url"], f"{r['name']} has no image")
+                self.assertTrue(
+                    r["image_url"].startswith("http"),
+                    f"{r['name']} image is not an http URL: {r['image_url']}",
+                )
+
+
+if __name__ == "__main__":
+    try:
+        unittest.main(verbosity=2)
+    finally:
+        # Clean up temporary DB
+        try: os.unlink(_tmp.name)
+        except Exception: pass
