@@ -71,3 +71,15 @@ class CardValidationTests(unittest.TestCase):
     def test_luhn_rejects_short_numbers(self):
         self.assertFalse(kc.luhn_check("1234"))
 
+    def test_brand_detection_visa(self):
+        self.assertEqual(kc.detect_card_brand("4242424242424242"), "visa")
+
+    def test_brand_detection_mastercard(self):
+        self.assertEqual(kc.detect_card_brand("5555555555554444"), "mastercard")
+
+    def test_brand_detection_amex(self):
+        self.assertEqual(kc.detect_card_brand("378282246310005"), "amex")
+
+    def test_brand_detection_unknown(self):
+        self.assertEqual(kc.detect_card_brand("9999999999999999"), "card")
+
