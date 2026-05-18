@@ -68,3 +68,15 @@ Email:     admin@kcblendz.com
 Password:  KCBlendz@2026
 ```
 
+## Sandbox payment test cards
+
+These cards are only revealed on the live payment page to admin users; ordinary customers never see them. Use them to test the secure-card-entry flow without touching real money.
+
+| Brand        | Number                 | Expiry       | CVV         |
+| ------------ | ---------------------- | ------------ | ----------- |
+| Visa         | `4242 4242 4242 4242`  | any future   | any 3-digit |
+| Mastercard   | `5555 5555 5555 4444`  | any future   | any 3-digit |
+| Amex         | `3782 822463 10005`    | any future   | `1234`      |
+
+All numbers are real Luhn-valid test PANs that the live brand-detection JavaScript recognises as you type.
+
