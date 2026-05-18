@@ -83,3 +83,17 @@ class CardValidationTests(unittest.TestCase):
     def test_brand_detection_unknown(self):
         self.assertEqual(kc.detect_card_brand("9999999999999999"), "card")
 
+    def test_validate_form_passes_with_clean_data(self):
+        class _F:
+            def get(self, k, d=""): return {
+                "card_number": "4242 4242 4242 4242",
+                "card_name": "John Doe",
+                "card_expiry": "12/30",
+                "card_cvv": "123",
+            }.get(k, d)
+        ok, errs, card = kc.validate_card_form(_F())
+        self.assertTrue(ok)
+        self.assertEqual(errs, [])
+        self.assertEqual(card["brand"], "visa")
+        self.assertEqual(card["last4"], "4242")
+
