@@ -97,3 +97,31 @@ class CardValidationTests(unittest.TestCase):
         self.assertEqual(card["brand"], "visa")
         self.assertEqual(card["last4"], "4242")
 
+    def test_validate_form_fails_on_expired_card(self):
+        class _F:
+            def get(self, k, d=""): return {
+                "card_number": "4242 4242 4242 4242",
+                "card_name": "John",
+                "card_expiry": "01/20",  # expired
+                "card_cvv": "123",
+            }.get(k, d)
+        ok, errs, _ = kc.validate_card_form(_F())
+        self.assertFalse(ok)
+        self.assertTrue(any("expired" in e.lower() for e in errs))
+
+    def test_validate_form_fails_on_short_cvv(self):
+        class _F:
+            def get(self, k, d=""): return {
+                "card_number": "4242 4242 4242 4242",
+                "card_name": "John",
+                "card_expiry": "12/30",
+                "card_cvv": "12",  # too short
+            }.get(k, d)
+        ok, errs, _ = kc.validate_card_form(_F())
+        self.assertFalse(ok)
+        self.assertTrue(any("CVV" in e for e in errs))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public route smoke tests
+# ─────────────────────────────────────────────────────────────────────────────
