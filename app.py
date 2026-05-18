@@ -30,6 +30,24 @@ UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
 
+
+
+# ─── Schema ─────────────────────────────────────────────────────────────────
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    phone TEXT,
+    role TEXT NOT NULL DEFAULT 'customer',
+    status TEXT NOT NULL DEFAULT 'active',
+    region TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_login_at TEXT
+);
+"""
+
 # ─── DB ─────────────────────────────────────────────────────────────────────
 import sqlite3
 
