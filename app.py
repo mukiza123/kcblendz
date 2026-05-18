@@ -1540,3 +1540,108 @@ def validate_card_form(form):
         errors.append("Please enter a valid card number.")
     if not name or len(name) < 2:
         errors.append("Please enter the cardholder name as it appears on the card.")
+    if not re.match(r"^\d{2}\s*/\s*\d{2}$", exp):
+        errors.append("Expiry must be in MM/YY format.")
+    else:
+        try:
+            mm, yy = [int(p.strip()) for p in exp.split("/")]
+            if mm < 1 or mm > 12: errors.append("Expiry month must be between 01 and 12.")
+            current_year = datetime.now().year % 100
+            current_month = datetime.now().month
+            if yy < current_year or (yy == current_year and mm < current_month):
+                errors.append("This card has expired.")
+        except Exception:
+            errors.append("Couldn't parse expiry date.")
+    if not re.match(r"^\d{3,4}$", cvv):
+        errors.append("CVV must be 3 or 4 digits.")
+
+    return (not errors, errors, {
+        "number": number, "name": name, "exp": exp, "cvv": cvv,
+        "brand": detect_card_brand(number),
+        "last4": number[-4:] if len(number) >= 4 else "",
+    })
+
+
+@app.route("/payment/<int:order_id>")
+def payment(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    u = current_user()
+    if order["user_id"] and (not u or u["id"] != order["user_id"]):
+        if not u or u["role"] != "admin":
+            abort(403)
+    return render_template("public/payment.html", order=order)
+
+
+@app.route("/payment/<int:order_id>/process", methods=["POST"])
+def payment_process(order_id):
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    method = order["payment_method"]
+    gateway = {"card": "paystack", "paypal": "paypal", "bank_transfer": "manual"}.get(method, "manual")
+
+    if method == "bank_transfer":
+        # require proof upload
+        f = request.files.get("proof")
+        proof_url = save_upload(f) if f else None
+        if not proof_url:
+            flash("Please upload your bank-transfer proof to continue.", "error")
+            return redirect(url_for("payment", order_id=order_id))
+        db.execute("""UPDATE orders SET payment_proof_url=?, order_status='processing',
+                      updated_at=datetime('now') WHERE id=?""", (proof_url, order_id))
+        db.execute("""INSERT INTO payments (order_id, method, gateway, reference, amount, currency, status)
+                      VALUES (?,?,?,?,?,?,?)""",
+                   (order_id, method, gateway, f"TRF-{secrets.token_hex(6).upper()}",
+                    order["total"], order["currency"], "awaiting_verification"))
+        db.commit()
+        flash("Proof of payment uploaded. Our team will verify within 12 hours.", "success")
+        notify_admins(f"Bank transfer for {order['order_number']}",
+                      "A customer uploaded proof of bank transfer. Verify in admin.",
+                      url_for("admin_order_detail", order_id=order_id))
+        return redirect(url_for("order_thanks", order_id=order_id))
+
+    # Card / PayPal: collect real card data, validate, then mark paid (sandbox).
+    ok, errors, card = validate_card_form(request.form)
+    if not ok:
+        for e in errors: flash(e, "error")
+        return redirect(url_for("payment", order_id=order_id))
+
+    # Build a realistic reference and store only last4 + brand (never the full PAN).
+    prefix = "PSK" if method == "card" else "PYP"
+    reference = f"{prefix}-{secrets.token_hex(6).upper()}"
+    meta = json.dumps({"brand": card["brand"], "last4": card["last4"], "name": card["name"]})
+
+    db.execute("""UPDATE orders SET payment_status='paid', payment_reference=?, order_status='processing',
+                  updated_at=datetime('now') WHERE id=?""", (reference, order_id))
+    db.execute("""INSERT INTO payments (order_id, method, gateway, reference, amount, currency, status, raw_payload)
+                  VALUES (?,?,?,?,?,?,?,?)""",
+               (order_id, method, gateway, reference, order["total"], order["currency"], "success", meta))
+    db.commit()
+
+    if order["user_id"]:
+        notify(order["user_id"], f"Payment received for {order['order_number']}",
+               f"Thanks — your payment of {format_money(order['total'], order['region'])} has been confirmed.",
+               url_for("account_order_detail", order_id=order_id))
+    notify_admins(f"Payment received: {order['order_number']}",
+                  f"{order['full_name']} paid {format_money(order['total'], order['region'])}.",
+                  url_for("admin_order_detail", order_id=order_id))
+    audit("order.paid", "order", order_id, {"reference": reference, "method": method,
+                                              "brand": card["brand"], "last4": card["last4"]})
+    return redirect(url_for("order_thanks", order_id=order_id))
+
+
+@app.route("/order/<int:order_id>/thanks")
+def order_thanks(order_id):
+    order = get_db().execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    if not order:
+        abort(404)
+    items = get_db().execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
+    return render_template("public/order_thanks.html", order=order, items=items)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WELLNESS HUB
