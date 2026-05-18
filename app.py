@@ -164,6 +164,30 @@ def close_db(_):
     if db is not None:
         db.close()
 
+
+# ─── Auth ──────────────────────────────────────────────────────────────────
+from flask import request, redirect, url_for, session, flash, render_template
+from security.passwords import verify_password
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        db = get_db()
+        u = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        if u and verify_password(password, u["password_hash"]) and u["status"] == "active":
+            session.clear()
+            session["uid"] = u["id"]
+            session["role"] = u["role"]
+            session.permanent = True
+            db.execute("UPDATE users SET last_login_at = datetime('now') WHERE id = ?", (u["id"],))
+            db.commit()
+            return redirect(url_for("root"))
+        flash("Invalid credentials.", "error")
+    return render_template("auth/login.html")
+
 @app.route("/")
 def root():
     return "KCBlendz is alive."
