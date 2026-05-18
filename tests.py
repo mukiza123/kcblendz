@@ -489,3 +489,16 @@ class SandboxVisibilityTests(unittest.TestCase):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Seed data integrity
+# ─────────────────────────────────────────────────────────────────────────────
+class SeedDataTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _fresh_db()
+
+    def test_admin_user_seeded(self):
+        with kc.app.app_context():
+            row = kc.get_db().execute(
+                "SELECT email FROM users WHERE role='admin'"
+            ).fetchone()
+        self.assertEqual(row["email"], "admin@kcblendz.com")
+
