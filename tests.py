@@ -252,5 +252,29 @@ class CSRFTests(_BaseDB):
         self.assertNotEqual(r.status_code, 400)
 
 
+
+
+class AdminAccessTests(_BaseDB):
+    def test_admin_redirects_anon(self):
+        r = self.client.get("/admin", follow_redirects=False)
+        self.assertIn(r.status_code, (302, 403))
+
+    def test_admin_blocks_non_admin(self):
+        # Register a normal user
+        tok = _csrf(self.client, "/register")
+        self.client.post("/register", data={
+            "_csrf": tok, "email": "user@example.com", "full_name": "Reg User",
+            "phone": "", "password": "Passw0rd!"
+        }, follow_redirects=False)
+        _login(self.client, "user@example.com", "Passw0rd!")
+        r = self.client.get("/admin", follow_redirects=False)
+        self.assertEqual(r.status_code, 403)
+
+    def test_admin_allows_admin(self):
+        _login(self.client, "admin@kcblendz.com", "Admin1234")
+        r = self.client.get("/admin", follow_redirects=False)
+        self.assertEqual(r.status_code, 200)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
