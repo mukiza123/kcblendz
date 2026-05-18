@@ -18,3 +18,18 @@ def safe_save_path(upload_dir: str, filename: str) -> str:
     if not name:
         raise ValueError("Unsafe filename.")
     return os.path.join(upload_dir, name)
+
+
+def sanitize_filename(name: str) -> str:
+    """Return a safe disk filename, stripping path traversal characters."""
+    if not name:
+        return ""
+    clean = secure_filename(name)
+    # Disallow leading dots (hidden files) and empty results
+    clean = clean.lstrip(".")
+    return clean or "upload"
+
+
+def reject_path_traversal(name: str) -> None:
+    if name and (".." in name or "/" in name or "\\" in name or name.startswith(("/", "\\"))):
+        raise ValueError("Filename contains illegal path components.")
