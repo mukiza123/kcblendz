@@ -11,3 +11,12 @@ def login_required(view):
             return redirect(url_for("login", next=request.path))
         return view(*a, **kw)
     return wrapped
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*a, **kw):
+        if session.get("role") != "admin":
+            abort(403)
+        return view(*a, **kw)
+    return wrapped
