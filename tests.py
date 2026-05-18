@@ -516,3 +516,18 @@ class SeedDataTests(unittest.TestCase):
             ).fetchone()["n"]
         self.assertEqual(count, 5)
 
+    def test_reviews_seeded(self):
+        with kc.app.app_context():
+            count = kc.get_db().execute(
+                "SELECT COUNT(*) AS n FROM reviews"
+            ).fetchone()["n"]
+        self.assertGreater(count, 0, "Expected seeded sample reviews")
+
+    def test_builder_options_seeded(self):
+        with kc.app.app_context():
+            types = {r["option_type"] for r in kc.get_db().execute(
+                "SELECT DISTINCT option_type FROM builder_options"
+            ).fetchall()}
+        self.assertEqual(types, {"cup_size", "fruit", "base", "sweetener",
+                                  "addon", "booster"})
+
