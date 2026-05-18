@@ -488,5 +488,48 @@ class AdminProductCRUDTests(_BaseDB):
             self.assertEqual(row["is_active"], 0)
 
 
+
+
+class BuilderPricingAPITests(_BaseDB):
+    def _seed_options(self):
+        with kc.app.app_context():
+            db = kc.get_db()
+            db.execute(
+                "INSERT INTO builder_options (option_type,name,price_mur,is_active) VALUES (?,?,?,1)",
+                ("cup_size", "Medium", 100.0))
+            db.execute(
+                "INSERT INTO builder_options (option_type,name,price_mur,is_active) VALUES (?,?,?,1)",
+                ("fruit", "Mango", 25.0))
+            db.execute(
+                "INSERT INTO builder_options (option_type,name,price_mur,is_active) VALUES (?,?,?,1)",
+                ("fruit", "Pineapple", 30.0))
+            db.commit()
+            return [r["id"] for r in db.execute(
+                "SELECT id FROM builder_options ORDER BY id").fetchall()]
+
+    def test_empty_payload_returns_zero(self):
+        # Make sure region is set so the response carries the right currency
+        tok = _csrf(self.client, "/")
+        self.client.post("/store/MU", data={"_csrf": tok}, follow_redirects=False)
+        tok = _csrf(self.client, "/")
+        r = self.client.post("/api/builder/price", json={},
+                             headers={"X-CSRF-Token": tok})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json["price"], 0)
+
+    def test_pricing_sums_selected_options(self):
+        ids = self._seed_options()
+        tok = _csrf(self.client, "/")
+        self.client.post("/store/MU", data={"_csrf": tok}, follow_redirects=False)
+        tok = _csrf(self.client, "/")
+        r = self.client.post("/api/builder/price",
+                             json={"cup_size": ids[0], "fruits": [ids[1], ids[2]]},
+                             headers={"X-CSRF-Token": tok})
+        self.assertEqual(r.status_code, 200)
+        # 100 + 25 + 30 = 155
+        self.assertEqual(r.json["price"], 155)
+        self.assertEqual(r.json["currency"], "MU")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
