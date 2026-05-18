@@ -216,5 +216,24 @@ class LogoutTests(_BaseDB):
         self.assertIn(r.status_code, (302, 401))
 
 
+
+
+class PasswordHashingTests(unittest.TestCase):
+    def test_hash_then_verify_roundtrip(self):
+        from security.passwords import hash_password, verify_password
+        h = hash_password("Sup3rSecret!")
+        self.assertTrue(verify_password("Sup3rSecret!", h))
+
+    def test_wrong_password_rejected(self):
+        from security.passwords import hash_password, verify_password
+        h = hash_password("Sup3rSecret!")
+        self.assertFalse(verify_password("nope", h))
+
+    def test_short_password_rejected(self):
+        from security.passwords import hash_password
+        with self.assertRaises(ValueError):
+            hash_password("123")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
