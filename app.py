@@ -135,4 +135,27 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     is_active INTEGER NOT NULL DEFAULT 1
 );
+
+CREATE TABLE IF NOT EXISTS builder_options (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    option_type TEXT NOT NULL,  -- cup_size | fruit | base | sweetener | addon | booster
+    name TEXT NOT NULL,
+    price_ngn REAL NOT NULL DEFAULT 0,
+    price_mur REAL NOT NULL DEFAULT 0,
+    price_usd REAL NOT NULL DEFAULT 0,
+    image_url TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS custom_smoothies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    config_json TEXT NOT NULL,    -- {cup, fruits[], base, sweeteners[], addons[], boosters[]}
+    region TEXT NOT NULL,         -- pricing region snapshot
+    price REAL NOT NULL,
+    currency TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
