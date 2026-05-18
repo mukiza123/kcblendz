@@ -301,3 +301,32 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_r
 """
 
 
+def get_db():
+    if "db" not in g:
+        g.db = sqlite3.connect(DB_PATH, timeout=15)
+        g.db.row_factory = sqlite3.Row
+        g.db.execute("PRAGMA foreign_keys = ON")
+        # Performance pragmas — faster reads, fewer locks under concurrency.
+        g.db.execute("PRAGMA journal_mode = WAL")
+        g.db.execute("PRAGMA synchronous = NORMAL")
+        g.db.execute("PRAGMA cache_size = -16000")
+        g.db.execute("PRAGMA temp_store = MEMORY")
+    return g.db
+
+
+@app.after_request
+def _cache_static(resp):
+    """Let the browser cache static assets so pages load fast on repeat
+    visits (helps perceived speed on Railway's free tier)."""
+    if request.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "public, max-age=2592000"
+    return resp
+
+
+@app.teardown_appcontext
+def close_db(_):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
