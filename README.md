@@ -267,3 +267,18 @@ Older CSS tokens (`--fuchsia`, `--lime`, `--sky`, `--purple`) are aliased to the
 **Iconography**: 100 percent inline SVG. No emojis anywhere. No icon font dependency.
 **Visual identity**: 2 px brand-dark borders, sharp drop-shadows (`shadow-[4px_4px_0_var(--kc-dark)]`), rounded-2xl cards, generous whitespace.
 
+## Tech stack and architecture
+
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Backend | Flask | Minimal, fast to read, perfect for a monolithic app of this size |
+| Database | SQLite | Zero-config, single-file, easy to inspect for a student project; trivial to swap for PostgreSQL in production (see Deployment) |
+| Frontend | Server-rendered Jinja2 + Tailwind CDN | No build step required — facilitators can run the project with a single `python app.py` |
+| Charts | Chart.js (via CDN) | Lightweight, dependency-free in the admin, all charts wrapped in fixed-height containers for instant render |
+| Auth | bcrypt via Werkzeug | Industry-standard password hashing |
+| Sessions | Flask signed cookies, HttpOnly, SameSite=Lax | Hardened against XSS; CSRF tokens layered on top, rotated on login |
+| Tests | Standard-library `unittest` | No extra install required |
+| Deployment | Gunicorn behind any modern PaaS | Project bootstraps its own database on import, so Railway, Render and Fly.io start cleanly |
+
+The entire backend lives in **one file** (`app.py`) by design: routes, schema, seeds and business logic in one place make it easy to onboard a new contributor in 20 minutes and easy to grade in one read-through.
+
