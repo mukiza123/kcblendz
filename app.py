@@ -1798,3 +1798,79 @@ def forgot_password():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CUSTOMER ACCOUNT
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/account")
+@login_required
+def account_dashboard():
+    u = current_user()
+    db = get_db()
+    recent_orders = db.execute(
+        "SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC LIMIT 5", (u["id"],)
+    ).fetchall()
+    saved = db.execute(
+        "SELECT * FROM custom_smoothies WHERE user_id=? ORDER BY created_at DESC LIMIT 4", (u["id"],)
+    ).fetchall()
+    stats = db.execute(
+        "SELECT COUNT(*) AS n_orders, COALESCE(SUM(total),0) AS total_spent FROM orders WHERE user_id=? AND payment_status='paid'",
+        (u["id"],)
+    ).fetchone()
+    notifs = db.execute(
+        "SELECT * FROM notifications WHERE user_id=? AND audience='user' ORDER BY created_at DESC LIMIT 5", (u["id"],)
+    ).fetchall()
+    return render_template("account/dashboard.html",
+                           recent_orders=recent_orders, saved=saved, stats=stats, notifs=notifs)
+
+
+@app.route("/account/orders")
+@login_required
+def account_orders():
+    u = current_user()
+    orders = get_db().execute(
+        "SELECT * FROM orders WHERE user_id=? ORDER BY created_at DESC", (u["id"],)
+    ).fetchall()
+    return render_template("account/orders.html", orders=orders)
+
+
+@app.route("/account/orders/<int:order_id>")
+@login_required
+def account_order_detail(order_id):
+    u = current_user()
+    order = get_db().execute("SELECT * FROM orders WHERE id=? AND user_id=?", (order_id, u["id"])).fetchone()
+    if not order:
+        abort(404)
+    items = get_db().execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
+    return render_template("account/order_detail.html", order=order, items=items)
+
+
+@app.route("/account/orders/<int:order_id>/reorder", methods=["POST"])
+@login_required
+def account_reorder(order_id):
+    u = current_user()
+    region = current_region() or "NG"
+    price_col = price_field_for(region)
+    avail = availability_field_for(region)
+    order = get_db().execute("SELECT * FROM orders WHERE id=? AND user_id=?", (order_id, u["id"])).fetchone()
+    if not order:
+        abort(404)
+    items = get_db().execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
+    cart = get_cart()
+    cart["region"] = region
+    added = 0
+    for it in items:
+        if it["product_id"]:
+            p = get_db().execute(
+                f"SELECT * FROM products WHERE id=? AND is_active=1 AND {avail}=1", (it["product_id"],)
+            ).fetchone()
+            if p:
+                cart["items"].append({
+                    "kind": "product", "product_id": p["id"], "name": p["name"],
+                    "image": p["image_url"], "meta": p["ingredients"] or "",
+                    "unit_price": p[price_col], "quantity": it["quantity"],
+                })
+                added += 1
+    session.modified = True
+    flash(f"Re-added {added} item(s) to your cart.", "success")
+    return redirect(url_for("cart"))
+
+
