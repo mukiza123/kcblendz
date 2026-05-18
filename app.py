@@ -210,6 +210,15 @@ def _enforce_csrf():
 def _inject_csrf():
     return {"csrf_token": _gen_csrf}
 
+
+# ─── Security headers ──────────────────────────────────────────────────────
+from security.headers import security_headers as _sec_headers
+
+
+@app.after_request
+def _apply_security_headers(resp):
+    return _sec_headers(resp)
+
 # ─── DB init / seed ────────────────────────────────────────────────────────
 from security.passwords import hash_password
 
