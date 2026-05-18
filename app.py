@@ -2354,3 +2354,17 @@ def admin_user_status(uid):
     return redirect(url_for("admin_user_detail", uid=uid))
 
 
+@app.route("/admin/users/export.csv")
+@admin_required
+def admin_users_export():
+    users = get_db().execute("SELECT id,email,full_name,phone,role,status,region,created_at FROM users ORDER BY created_at DESC").fetchall()
+    lines = ["id,email,full_name,phone,role,status,region,created_at"]
+    for u in users:
+        lines.append(",".join(str(x).replace(",", " ") if x is not None else "" for x in u))
+    resp = make_response("\n".join(lines))
+    resp.headers["Content-Type"] = "text/csv"
+    resp.headers["Content-Disposition"] = "attachment; filename=kcblendz-users.csv"
+    return resp
+
+
+# Blogs
