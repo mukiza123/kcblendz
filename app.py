@@ -2334,3 +2334,23 @@ def admin_user_detail(uid):
     return render_template("admin/user_detail.html", u=u, orders=orders, saved=saved, addresses=addresses)
 
 
+@app.route("/admin/users/<int:uid>/status", methods=["POST"])
+@admin_required
+def admin_user_status(uid):
+    action = request.form.get("action")
+    if action == "suspend":
+        get_db().execute("UPDATE users SET status='suspended' WHERE id=?", (uid,))
+    elif action == "activate":
+        get_db().execute("UPDATE users SET status='active' WHERE id=?", (uid,))
+    elif action == "delete":
+        get_db().execute("UPDATE users SET status='deleted' WHERE id=?", (uid,))
+    elif action == "make_admin":
+        get_db().execute("UPDATE users SET role='admin' WHERE id=?", (uid,))
+    elif action == "make_customer":
+        get_db().execute("UPDATE users SET role='customer' WHERE id=?", (uid,))
+    get_db().commit()
+    audit(f"user.{action}", "user", uid)
+    flash("User updated.", "success")
+    return redirect(url_for("admin_user_detail", uid=uid))
+
+
