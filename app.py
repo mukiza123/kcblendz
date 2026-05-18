@@ -29,6 +29,27 @@ app.config.update(
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
+
+# ─── DB ─────────────────────────────────────────────────────────────────────
+import sqlite3
+
+
+def get_db():
+    from flask import g
+    if "db" not in g:
+        g.db = sqlite3.connect(str(DB_PATH))
+        g.db.row_factory = sqlite3.Row
+        g.db.execute("PRAGMA foreign_keys = ON")
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(_):
+    from flask import g
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
 @app.route("/")
 def root():
     return "KCBlendz is alive."
