@@ -249,3 +249,51 @@ class AuthTests(unittest.TestCase):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Authorization tests — role-based access control
+# ─────────────────────────────────────────────────────────────────────────────
+class AuthorizationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        _fresh_db()
+
+    def setUp(self):
+        self.client = kc.app.test_client()
+        with self.client.session_transaction() as s:
+            s["region"] = "MU"
+
+    def test_guest_cannot_access_account_pages(self):
+        for path in ("/account", "/account/orders", "/account/favorites",
+                     "/account/profile"):
+            with self.subTest(path=path):
+                r = self.client.get(path, follow_redirects=False)
+                self.assertEqual(r.status_code, 302)
+                self.assertIn("/login", r.headers["Location"])
+
+    def test_guest_cannot_access_admin(self):
+        r = self.client.get("/admin", follow_redirects=False)
+        # admin_required either redirects to /login (302) or forbids outright (403)
+        self.assertIn(r.status_code, (302, 403))
+
+    def test_customer_cannot_access_admin(self):
+        # Create a regular customer
+        tok = _csrf(self.client, "/register")
+        self.client.post("/register", data={
+            "_csrf": tok, "full_name": "Reg", "email": "reg@kc.com",
+            "phone": "+23055557777", "password": "aaaaaaaa",
+        })
+        # Already logged in as customer now
+        r = self.client.get("/admin", follow_redirects=False)
+        # Admin decorator should redirect/forbid
+        self.assertIn(r.status_code, (302, 403))
+
+    def test_admin_can_access_all_admin_pages(self):
+        _login(self.client, "admin@kcblendz.com", "KCBlendz@2026")
+        for path in ("/admin", "/admin/products", "/admin/orders", "/admin/users",
+                     "/admin/reports", "/admin/blogs", "/admin/builder",
+                     "/admin/categories", "/admin/messages", "/admin/notifications"):
+            with self.subTest(path=path):
+                r = self.client.get(path)
+                self.assertEqual(r.status_code, 200, f"{path} -> {r.status_code}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Favorites + Reviews
