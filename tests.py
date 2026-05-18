@@ -158,3 +158,24 @@ class PublicRouteTests(unittest.TestCase):
                 r = self.client.get(path)
                 self.assertEqual(r.status_code, 200, f"{path} -> {r.status_code}")
 
+    def test_root_redirects_when_region_set(self):
+        r = self.client.get("/", follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/home", r.headers["Location"])
+
+    def test_root_redirects_to_store_picker_without_region(self):
+        client = kc.app.test_client()  # fresh, no region
+        r = client.get("/", follow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/store", r.headers["Location"])
+
+    def test_sitemap_and_robots_render(self):
+        for path in ("/sitemap.xml", "/robots.txt"):
+            with self.subTest(path=path):
+                r = self.client.get(path)
+                self.assertEqual(r.status_code, 200)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Authentication tests — signup bug regression + login flows
+# ─────────────────────────────────────────────────────────────────────────────
