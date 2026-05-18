@@ -312,3 +312,12 @@ gunicorn -w 4 -b 0.0.0.0:8000 app:app
 - **Persistent volume:** mount one for `static/uploads/` and (if you want the SQLite DB to survive redeploys) `kcblendz.db`. Otherwise the database self-heals on first request — but customer-created data is lost on each redeploy.
 - **Database bootstrap is automatic** — `init_db()` runs on module import and again as a `before_request` safety check, so there is no separate migration step.
 
+### Performance tuning for slow free tiers
+
+The project includes a few touches that make a noticeable difference on free PaaS tiers:
+
+- `<link rel="preconnect">` for Tailwind, Google Fonts and Unsplash so the browser warms up TCP+TLS in parallel with the HTML download.
+- `Cache-Control: public, max-age=604800, immutable` on every response under `/static/` so the 8.5 MB brand video is downloaded once per week per visitor, not on every page load.
+- `preload="metadata"` on every `<video>` tag so the first paint is not blocked by the full video download.
+- Idempotent `init_db()` — safe to call repeatedly under multiple gunicorn workers without conflict.
+
