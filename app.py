@@ -623,6 +623,56 @@ def account_order_detail(order_id):
     items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
     return render_template("account/order_detail.html", order=order, items=items)
 
+
+@app.route("/account/saved-smoothies")
+@login_required
+def account_saved():
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM custom_smoothies WHERE user_id = ? ORDER BY created_at DESC",
+        (session["uid"],)
+    ).fetchall()
+    return render_template("account/saved_smoothies.html", smoothies=rows)
+
+
+@app.route("/account/addresses", methods=["GET", "POST"])
+@login_required
+def account_addresses():
+    db = get_db()
+    if request.method == "POST":
+        db.execute(
+            """INSERT INTO addresses (user_id, label, full_name, phone, street, city,
+               state, country, postal_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (session["uid"], request.form.get("label"), request.form.get("full_name"),
+             request.form.get("phone"), request.form.get("street"), request.form.get("city"),
+             request.form.get("state"), request.form.get("country") or "Mauritius",
+             request.form.get("postal_code"))
+        )
+        db.commit()
+        flash("Address saved.", "success")
+        return redirect(url_for("account_addresses"))
+    rows = db.execute(
+        "SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, id DESC",
+        (session["uid"],)
+    ).fetchall()
+    return render_template("account/addresses.html", addresses=rows)
+
+
+@app.route("/account/profile", methods=["GET", "POST"])
+@login_required
+def account_profile():
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (session["uid"],)).fetchone()
+    if request.method == "POST":
+        db.execute(
+            "UPDATE users SET full_name = ?, phone = ? WHERE id = ?",
+            (request.form.get("full_name"), request.form.get("phone"), session["uid"])
+        )
+        db.commit()
+        flash("Profile updated.", "success")
+        return redirect(url_for("account_profile"))
+    return render_template("account/profile.html", user=user)
+
 # ─── Auth ──────────────────────────────────────────────────────────────────
 from flask import request, redirect, url_for, session, flash, render_template, abort
 from security.passwords import verify_password
