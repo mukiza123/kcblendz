@@ -1495,3 +1495,22 @@ def checkout():
                            delivery_fee=delivery_fee_for(region), region=region,
                            currency=currency, form={})
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAYMENTS — sandbox/demo (Paystack-style NG, PayPal-style MU/GL, bank transfer)
+# In production, replace the card branch with the real Paystack/PayPal init.
+# ─────────────────────────────────────────────────────────────────────────────
+def luhn_check(card_number: str) -> bool:
+    """Standard Luhn checksum used by every real card network."""
+    digits = [int(d) for d in card_number if d.isdigit()]
+    if len(digits) < 13 or len(digits) > 19:
+        return False
+    total = 0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1:
+            d *= 2
+            if d > 9: d -= 9
+        total += d
+    return total % 10 == 0
+
+
